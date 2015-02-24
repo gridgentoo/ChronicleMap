@@ -19,13 +19,13 @@
 package net.openhft.chronicle.map;
 
 import net.openhft.chronicle.hash.function.SerializableFunction;
-import net.openhft.chronicle.hash.serialization.internal.ReaderWithSize;
-import net.openhft.chronicle.hash.serialization.internal.SerializationBuilder;
+import net.openhft.chronicle.hash.impl.util.BuildVersion;
 import net.openhft.chronicle.hash.replication.RemoteNodeValidator;
 import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.hash.replication.ThrottlingConfig;
 import net.openhft.chronicle.hash.serialization.BytesReader;
-import net.openhft.chronicle.hash.impl.util.BuildVersion;
+import net.openhft.chronicle.hash.serialization.internal.ReaderWithSize;
+import net.openhft.chronicle.hash.serialization.internal.SerializationBuilder;
 import net.openhft.lang.io.AbstractBytes;
 import net.openhft.lang.io.ByteBufferBytes;
 import net.openhft.lang.io.Bytes;
@@ -36,7 +36,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
-import java.io.EOFException;
 import java.io.IOException;
 import java.net.*;
 import java.nio.BufferUnderflowException;
@@ -49,9 +48,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.nio.channels.SelectionKey.*;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static net.openhft.chronicle.hash.impl.util.BuildVersion.version;
 import static net.openhft.chronicle.map.AbstractChannelReplicator.SIZE_OF_SIZE;
 import static net.openhft.chronicle.map.AbstractChannelReplicator.SIZE_OF_TRANSACTION_ID;
-import static net.openhft.chronicle.hash.impl.util.BuildVersion.version;
 import static net.openhft.chronicle.map.StatelessChronicleMap.EventId.HEARTBEAT;
 
 interface Work {
@@ -76,7 +75,8 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
     private static final byte NOT_SET = (byte) HEARTBEAT.ordinal();
     private static final Logger LOG = LoggerFactory.getLogger(TcpReplicator.class.getName());
     private static final int BUFFER_SIZE = 0x100000; // 1MB
-
+    private static int USE_WIRE = ByteBufferBytes.wrap(ByteBuffer.wrap(new byte[]{74, 79, 70, 65})).readInt();
+    private final WireStatelessServerMap wiredStatelessServer = new WireStatelessServerMap();
     public static final long SPIN_LOOP_TIME_IN_NONOSECONDS = TimeUnit.MICROSECONDS.toNanos(500);
     private final SelectionKey[] selectionKeysStore = new SelectionKey[Byte.MAX_VALUE + 1];
     // used to instruct the selector thread to set OP_WRITE on a key correlated by the bit index
@@ -584,6 +584,21 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
         final TcpSocketChannelEntryReader reader = attached.entryReader;
 
         socketChannel.register(selector, OP_READ | OP_WRITE, attached);
+
+        if (reader.out.limit() < 6)
+            return;
+
+        if (reader.out.readInt(2) == USE_WIRE && reader.out.position() == 0) {
+
+            if (reader.out.remaining() < reader.out.readUnsignedShort(0))
+                return;
+
+            // skip the len
+            reader.out.skip(2);
+
+            wiredStatelessServer.doHandshaking(reader.out);
+        }
+
 
         if (attached.remoteIdentifier == Byte.MIN_VALUE) {
             final byte remoteIdentifier = reader.identifierFromBuffer();

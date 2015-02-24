@@ -48,7 +48,7 @@
             <dependency>
                 <groupId>net.openhft</groupId>
                 <artifactId>lang</artifactId>
-                <version>6.5.2-SNAPSHOT</version>
+                <version>6.6.1-SNAPSHOT</version>
             </dependency>
 
             <dependency>
@@ -62,6 +62,13 @@
                 <artifactId>compiler</artifactId>
                 <version>2.2.0</version>
             </dependency>
+
+            <dependency>
+                <groupId>net.openhft</groupId>
+                <artifactId>chronicle-wire</artifactId>
+                <version>1.0.0-alpha-SNAPSHOT</version>
+            </dependency>
+
 
         </dependencies>
 
@@ -86,6 +93,11 @@
         <dependency>
             <groupId>com.intellij</groupId>
             <artifactId>annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>net.openhft</groupId>
+            <artifactId>chronicle-wire</artifactId>
         </dependency>
 
         <!-- optional dependencies -->
