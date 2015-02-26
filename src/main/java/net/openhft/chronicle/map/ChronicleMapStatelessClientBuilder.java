@@ -34,6 +34,16 @@ public final class ChronicleMapStatelessClientBuilder<K, V> implements
                 ChronicleMap<K, V>>,
         MapBuilder<ChronicleMapStatelessClientBuilder<K, V>> {
 
+    public StatelessClientTcpConnectionHub hub;
+
+    public StatelessClientTcpConnectionHub hub() {
+        return hub;
+    }
+
+    public void hub(StatelessClientTcpConnectionHub hub) {
+        this.hub = hub;
+    }
+
     static <K, V> ChronicleMapStatelessClientBuilder<K, V> of(
             InetSocketAddress serverAddress) {
         return new ChronicleMapStatelessClientBuilder<>(serverAddress);
@@ -129,8 +139,14 @@ public final class ChronicleMapStatelessClientBuilder<K, V> implements
 
     @Override
     public ChronicleMap<K, V> create() throws IOException {
+
+        // todo clean this up
+        if (hub == null)
+            hub = new StatelessClientTcpConnectionHub(this);
+
         if (!used.getAndSet(true)) {
-            return new StatelessChronicleMap<>(this);
+            return new StatelessChronicleMap<K, V>(this);
+
         } else {
             throw new IllegalStateException(
                     "A stateless client has already been created using this builder. " +
