@@ -16,30 +16,13 @@
  * limitations under the License.
  */
 
-package eg;
+package net.openhft.chronicle.map;
 
-import net.openhft.chronicle.wire.TextWire;
-import net.openhft.lang.io.AbstractBytes;
-import net.openhft.lang.io.ByteBufferBytes;
-import net.openhft.lang.io.IByteBufferBytes;
-import org.junit.Test;
-
-import java.nio.ByteBuffer;
+import java.util.List;
 
 /**
  * Created by Rob Austin
  */
-public class MapWireProtocol {
-
-
-    @Test
-    public void test() throws Exception {
-
-        IByteBufferBytes bytes = ByteBufferBytes.wrap(ByteBuffer.wrap(new byte[1024]));
-        new TextWire(bytes).write(() -> "type").text("stateless-map");
-        bytes.flip();
-
-        System.out.println("XXX" + AbstractBytes.toHex(bytes));
-
-    }
+public interface ChannelListProvider {
+    List<Replica> chronicleChannelList();
 }

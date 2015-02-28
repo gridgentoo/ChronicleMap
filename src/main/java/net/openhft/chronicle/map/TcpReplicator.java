@@ -72,11 +72,11 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
 
     public static final long TIMESTAMP_FACTOR = 10000;
     private static final int STATELESS_CLIENT = -127;
+    private static final int WIRED_CONNECTION = -126;
     private static final byte NOT_SET = (byte) HEARTBEAT.ordinal();
     private static final Logger LOG = LoggerFactory.getLogger(TcpReplicator.class.getName());
     private static final int BUFFER_SIZE = 0x100000; // 1MB
-    private static int USE_WIRE = ByteBufferBytes.wrap(ByteBuffer.wrap(new byte[]{74, 79, 70, 65})).readInt();
-    private final WireStatelessServerMap wiredStatelessServer = new WireStatelessServerMap();
+
     public static final long SPIN_LOOP_TIME_IN_NONOSECONDS = TimeUnit.MICROSECONDS.toNanos(500);
     private final SelectionKey[] selectionKeysStore = new SelectionKey[Byte.MAX_VALUE + 1];
     // used to instruct the selector thread to set OP_WRITE on a key correlated by the bit index
@@ -85,6 +85,10 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
             new KeyInterestUpdater(OP_WRITE, selectionKeysStore);
     private final BitSet activeKeys = new BitSet(selectionKeysStore.length);
     private final long heartBeatIntervalMillis;
+
+    @Nullable
+    final List<Replica> channelList;
+
     private long largestEntrySoFar = 128;
 
     @NotNull
@@ -128,12 +132,14 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
                          @NotNull final TcpTransportAndNetworkConfig replicationConfig,
                          @Nullable final RemoteNodeValidator remoteNodeValidator,
                          @Nullable final StatelessClientParameters statelessClientParameters,
-                         String name)
+                         String name,
+                         @Nullable final List<Replica> channelList)
             throws IOException {
 
         super("TcpSocketReplicator-" + replica.identifier(), replicationConfig.throttlingConfig());
 
         this.statelessClientParameters = statelessClientParameters;
+        this.channelList = channelList;
 
         final ThrottlingConfig throttlingConfig = replicationConfig.throttlingConfig();
         long throttleBucketInterval = throttlingConfig.bucketInterval(MILLISECONDS);
@@ -585,23 +591,13 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
 
         socketChannel.register(selector, OP_READ | OP_WRITE, attached);
 
-        if (reader.out.limit() < 6)
-            return;
-
-        if (reader.out.readInt(2) == USE_WIRE && reader.out.position() == 0) {
-
-            if (reader.out.remaining() < reader.out.readUnsignedShort(0))
-                return;
-
-            // skip the len
-            reader.out.skip(2);
-
-            wiredStatelessServer.doHandshaking(reader.out);
-        }
-
-
         if (attached.remoteIdentifier == Byte.MIN_VALUE) {
             final byte remoteIdentifier = reader.identifierFromBuffer();
+
+            if (remoteIdentifier == WIRED_CONNECTION) {
+                attached.handShakingComplete = true;
+                return;
+            }
 
             if (remoteIdentifier == STATELESS_CLIENT) {
                 attached.handShakingComplete = true;
@@ -626,7 +622,6 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
 
             // this can occur sometimes when if 2 or more remote node attempt to use node discovery
             // at the same time
-
             final SocketAddress remoteAddress = socketChannel.getRemoteAddress();
 
             if ((remoteNodeValidator != null &&
@@ -724,6 +719,12 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
             return;
         }
 
+        if (attached.useWire) {
+            attached.statelessWiredConnector.onWrite(socketChannel, key);
+            return;
+        }
+
+
         TcpSocketChannelEntryWriter entryWriter = attached.entryWriter;
 
         if (entryWriter == null) throw
@@ -775,6 +776,29 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
             return;
         }
 
+        boolean forceRead = false;
+
+        if (!attached.isHandShakingComplete()) {
+            byte[] data = new byte[1];
+
+            // sniff just a single byte from the socket and write it to attached.entryReader.in
+            // this way we can switch to StatelessWiredConnector without reading any other data
+            socketChannel.read(ByteBuffer.wrap(data));
+            byte b = data[0];
+            attached.entryReader.in.put(b);
+            attached.entryReader.out.limit(1);
+
+            if (b == WIRED_CONNECTION)
+                attached.useWire = true;
+            forceRead = true;
+            attached.statelessWiredConnector = new StatelessWiredConnector(channelList);
+        }
+
+        if (attached.useWire) {
+            attached.statelessWiredConnector.onRead(socketChannel, key);
+            return;
+        }
+
         try {
 
             int len = attached.entryReader.readSocketToBuffer(socketChannel);
@@ -789,7 +813,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
                 return;
             }
 
-            if (len == 0)
+            if (len == 0 && !forceRead)
                 return;
 
             if (attached.entryWriter.isWorkIncomplete())
@@ -1013,20 +1037,22 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
      */
     class Attached<K, V> implements Replica.ModificationNotifier {
 
-        public TcpSocketChannelEntryReader entryReader;
-        public TcpSocketChannelEntryWriter entryWriter;
+        TcpSocketChannelEntryReader entryReader;
+        TcpSocketChannelEntryWriter entryWriter;
 
         @Nullable
-        public Replica.ModificationIterator remoteModificationIterator;
-        public AbstractConnector connector;
-        public long remoteBootstrapTimestamp = Long.MIN_VALUE;
-        public byte remoteIdentifier = Byte.MIN_VALUE;
-        public boolean hasRemoteHeartbeatInterval;
+        Replica.ModificationIterator remoteModificationIterator;
+        AbstractConnector connector;
+        long remoteBootstrapTimestamp = Long.MIN_VALUE;
+        byte remoteIdentifier = Byte.MIN_VALUE;
+        boolean hasRemoteHeartbeatInterval;
         // true if its socket is a ServerSocket
-        public boolean isServer;        // the frequency the remote node will send a heartbeat
-        public boolean handShakingComplete;
-        public String serverVersion;
-        public long remoteHeartbeatInterval = heartBeatIntervalMillis;
+        boolean isServer;        // the frequency the remote node will send a heartbeat
+        boolean handShakingComplete;
+        String serverVersion;
+        long remoteHeartbeatInterval = heartBeatIntervalMillis;
+        boolean useWire;
+        StatelessWiredConnector statelessWiredConnector;
 
         boolean isHandShakingComplete() {
             return handShakingComplete;
@@ -1351,11 +1377,33 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
         /**
          * reads entries from the buffer till empty
          *
-         * @param attached
+         * @param attached          * @param key  the selection key
+        channel
          * @param key
          * @throws InterruptedException
          */
         void entriesFromBuffer(@NotNull Attached attached, @NotNull SelectionKey key) {
+/*
+            if (attached.useWire) {
+
+                if (out.remaining() >= 4) {
+                    int size = out.readInt(out.position());
+                    if (out.remaining() >= size) {
+
+                        long end = out.position() + size;
+
+                        try {
+                            out.skip(4); // for the size
+                            wiredStatelessServer.processStatelessEvent(out, attached.entryWriter);
+                        } finally {
+                            out.position(end);
+                        }
+
+                    }
+                }
+                return;
+            }*/
+
             int entriesRead = 0;
             try {
                 for (; ; entriesRead++) {

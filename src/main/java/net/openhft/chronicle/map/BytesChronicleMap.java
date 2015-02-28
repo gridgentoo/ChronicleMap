@@ -135,4 +135,21 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
     public Set<Entry<Bytes, Bytes>> entrySet() {
         throw new UnsupportedOperationException();
     }
+
+    public Bytes put(Bytes key, Bytes value, long timestamp, byte id) {
+        // todo
+        try (ReplicatedChronicleMap.BytesReplicatedContext c = (ReplicatedChronicleMap.BytesReplicatedContext) context(key)) {
+            // We cannot read the previous value using just a read lock, because then we will need
+            // to release the read lock -> acquire write lock, the value might be updated in
+            // between, that will break ConcurrentMap.put() atomicity guarantee. So, we acquire
+            // update lock from the start:
+            c.updateLock().lock();
+            Bytes prevValue = prevValueOnPut(c);
+            c.newTimestamp  = timestamp;
+            c.newIdentifier = id;
+            c.writeReplicationBytes();
+            c.put(value);
+            return prevValue;
+        }
+    }
 }
