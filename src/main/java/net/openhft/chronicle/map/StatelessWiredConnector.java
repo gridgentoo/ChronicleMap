@@ -27,12 +27,16 @@ import net.openhft.chronicle.bytes.BytesMarshallable;
 import net.openhft.chronicle.wire.TextWire;
 import net.openhft.chronicle.wire.Wire;
 import net.openhft.lang.io.DirectStore;
+import net.openhft.lang.io.NativeBytes;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -44,6 +48,25 @@ import java.util.List;
  */
 class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarshallable> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(StatelessWiredConnector.class);
+
+
+    static Field ADDRESS;
+    static Field CAPACITY;
+
+    static {
+        try {
+            ADDRESS = ByteBuffer.class.getDeclaredField("address");
+            ADDRESS.setAccessible(true);
+
+            CAPACITY = ByteBuffer.class.getDeclaredField("capacity");
+            CAPACITY.setAccessible(true);
+        } catch (Exception e) {
+            LOG.error("", e);
+        }
+    }
+
+    private final NativeBytes langBytes = new NativeBytes(0, 0);
 
     private boolean handshingComplete;
     // private final byte identifier;
@@ -55,6 +78,34 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private ArrayList<BytesChronicleMap> bytesChronicleMaps = new ArrayList<>();
     private TextWire inWire = new TextWire(Bytes.elasticByteBuffer());
     private TextWire outWire = new TextWire(Bytes.elasticByteBuffer());
+
+
+    MapIOBuffer mapIOBuffer = new MapIOBuffer() {
+
+        @Override
+        public void ensureBufferSize(long l) {
+            outWire.bytes().ensureCapacity(l);
+        }
+
+        /**
+         * maps the outWire.bytes() to lang bytes
+         * @return lang bytes that represent the {@code outWire.bytes()}
+         */
+        @Override
+        public net.openhft.lang.io.Bytes in() {
+            try {
+                ByteBuffer buffer = (ByteBuffer) outWire.bytes().underlyingObject();
+                langBytes.address(ADDRESS.getLong(buffer));
+                langBytes.capacity(CAPACITY.getLong(buffer));
+                langBytes.limit(buffer.limit());
+                langBytes.position(buffer.position());
+                return langBytes;
+            } catch (Exception e) {
+                LOG.error("", e);
+            }
+            return langBytes;
+        }
+    };
 
     private byte identifier;
     private long transactionId;
@@ -187,10 +238,9 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
 
-    private void writeLength(@NotNull final Wire textWire,
-                             @NotNull final TcpReplicator.TcpSocketChannelEntryWriter writer) {
+    private void writeLength(@NotNull final Wire textWire) {
 
-        if (writer.in().position() > Integer.MAX_VALUE)
+        if (textWire.bytes().position() > Integer.MAX_VALUE)
             throw new IllegalStateException("position too large");
 
         // write the size
@@ -234,26 +284,20 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
 
-
-        // move the lang bytes to the same location as the chronicle bytes
-
-
-        // todo  - in comment code below
-     /*   writer.in().position(out.bytes().position());
-
         final BytesChronicleMap bytesMap = bytesMap(channelId);
-        bytesMap.output = writer;
+        bytesMap.output = mapIOBuffer;
 
         try {
             bytesMap.put(reader, reader, timestamp, identifier);
+            outWire.bytes().position(langBytes.position());
         } catch (Throwable e) {
             // move back to the start
-            out.bytes().position(2);
-            return sendException(out, e);
+            outWire.bytes().position(2);
+            return sendException(outWire, e);
         } finally {
             bytesMap.output = null;
-            writeLength(out, writer);
-        }*/
+            writeLength(outWire);
+        }
 
         return null;
     }

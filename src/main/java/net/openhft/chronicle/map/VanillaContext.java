@@ -18,7 +18,6 @@ package net.openhft.chronicle.map;
 
 import net.openhft.chronicle.hash.impl.ContextFactory;
 import net.openhft.chronicle.hash.impl.HashContext;
-import net.openhft.chronicle.hash.impl.hashlookup.EntryConsumer;
 import net.openhft.chronicle.hash.serialization.BytesReader;
 import net.openhft.chronicle.hash.serialization.internal.BytesBytesInterop;
 import net.openhft.chronicle.hash.serialization.internal.DelegatingMetaBytesInterop;
@@ -33,10 +32,10 @@ class VanillaContext<K, KI, MKI extends MetaBytesInterop<K, ? super KI>,
         extends HashContext<K, KI, MKI>
         implements MapKeyContext<K, V> {
 
-    
+
     /////////////////////////////////////////////////
     // Inner state & lifecycle
-    
+
     enum VanillaChronicleMapContextFactory implements ContextFactory<VanillaContext> {
         INSTANCE;
 
@@ -55,9 +54,10 @@ class VanillaContext<K, KI, MKI extends MetaBytesInterop<K, ? super KI>,
             return VanillaContext.class;
         }
     }
-    
-    VanillaContext() {}
-    
+
+    VanillaContext() {
+    }
+
     VanillaContext(HashContext contextCache, int indexInContextCache) {
         super(contextCache, indexInContextCache);
     }
@@ -75,11 +75,11 @@ class VanillaContext<K, KI, MKI extends MetaBytesInterop<K, ? super KI>,
 
     /////////////////////////////////////////////////
     // Map
-    
+
     public VanillaChronicleMap<K, KI, MKI, V, VI, MVI> m() {
         return (VanillaChronicleMap<K, KI, MKI, V, VI, MVI>) h;
     }
-    
+
     @Override
     public void closeHashDependants() {
         super.closeHashDependants();
@@ -87,7 +87,7 @@ class VanillaContext<K, KI, MKI extends MetaBytesInterop<K, ? super KI>,
         closeValue();
         closeValueReader();
     }
-    
+
 
     /////////////////////////////////////////////////
     // Map and context locals
@@ -589,7 +589,7 @@ class VanillaContext<K, KI, MKI extends MetaBytesInterop<K, ? super KI>,
 
 
     private final MultiStoreBytes valueCopy = new MultiStoreBytes();
-    TcpReplicator.TcpSocketChannelEntryWriter output;
+    MapIOBuffer output;
 
     void initBytesValueModel0() {
         valueInterop = (VI) BytesBytesInterop.INSTANCE;

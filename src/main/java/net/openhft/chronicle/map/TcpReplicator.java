@@ -527,7 +527,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
      */
     boolean isValidVersionNumber(String versionNumber) {
 
-        if (versionNumber.length()<=2)
+        if (versionNumber.length() <= 2)
             return false;
 
         for (char c : versionNumber.toCharArray()) {
@@ -668,7 +668,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
 
             if (!isValidVersionNumber(attached.serverVersion)) {
                 LOG.warn("Please check that you don't have a third party system incorrectly connecting to ChronicleMap, " +
-                        "Closing the remote connection as Chronicle can not make sense of the remote version number received from the external connection, version="+attached.serverVersion+", Chronicle is expecting the version number to only contain '.',A-Z,a-z,0-9");
+                        "Closing the remote connection as Chronicle can not make sense of the remote version number received from the external connection, version=" + attached.serverVersion + ", Chronicle is expecting the version number to only contain '.',A-Z,a-z,0-9");
                 socketChannel.close();
             }
 
@@ -1071,8 +1071,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
     /**
      * @author Rob Austin.
      */
-    class TcpSocketChannelEntryWriter {
-
+    public class TcpSocketChannelEntryWriter implements MapIOBuffer {
 
         @NotNull
         private final EntryCallback entryCallback;
@@ -1111,7 +1110,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
             in().writeByte(localIdentifier);
         }
 
-        void ensureBufferSize(long size) {
+        public void ensureBufferSize(long size) {
             if (in().remaining() < size) {
                 size += entryCallback.in().position();
                 if (size > Integer.MAX_VALUE)
@@ -1137,7 +1136,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
                 throw e;
         }
 
-        Bytes in() {
+       public Bytes in() {
             return entryCallback.in();
         }
 
@@ -1377,8 +1376,8 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
         /**
          * reads entries from the buffer till empty
          *
-         * @param attached          * @param key  the selection key
-        channel
+         * @param attached * @param key  the selection key
+         *                 channel
          * @param key
          * @throws InterruptedException
          */
