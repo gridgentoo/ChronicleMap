@@ -19,7 +19,6 @@
 package net.openhft.chronicle.map;
 
 import net.openhft.chronicle.hash.ChronicleHashStatelessClientBuilder;
-import net.openhft.chronicle.hash.serialization.internal.SerializationBuilder;
 import net.openhft.lang.MemoryUnit;
 
 import java.io.IOException;
@@ -35,9 +34,11 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
                 ChronicleMap<K, V>>,
         MapBuilder<WiredChronicleMapStatelessClientBuilder<K, V>> {
 
-    public WiredStatelessClientTcpConnectionHub hub;
-    public SerializationBuilder keyBuilder;
-    public SerializationBuilder valueBuilder;
+    WiredStatelessClientTcpConnectionHub hub;
+    private Class keyClass;
+    private Class valueClass;
+    private byte localIdentifier;
+    private short channelID;
 
     public WiredStatelessClientTcpConnectionHub hub() {
         return hub;
@@ -47,9 +48,11 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
         this.hub = hub;
     }
 
-    static <K, V> WiredChronicleMapStatelessClientBuilder<K, V> of(
-            InetSocketAddress serverAddress) {
-        return new WiredChronicleMapStatelessClientBuilder<>(serverAddress);
+    public WiredChronicleMapStatelessClientBuilder(InetSocketAddress remoteAddress, Class keyClass, Class valueClass, short channelID) {
+        this.keyClass = keyClass;
+        this.valueClass = valueClass;
+        this.remoteAddress = remoteAddress;
+        this.channelID = channelID;
     }
 
     // This method is meaningful, despite you could call of().create(), because Java 7 doesn't
@@ -60,18 +63,7 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
     // createClientOf(addr) // static import
     // -- the second is really shorter.
 
-    /**
-     * Equivalent of {@code ChronicleMapStatelessClientBuilder.<K, V>of(serverAddress).create()}.
-     *
-     * @param serverAddress address of the server map
-     * @param <K> key type of the map
-     * @param <V> value type of the map
-     * @return stateless client of the ChronicleMap of server
-     */
-    public static <K, V> ChronicleMap<K, V> createClientOf(InetSocketAddress serverAddress)
-            throws IOException {
-        return WiredChronicleMapStatelessClientBuilder.<K, V>of(serverAddress).create();
-    }
+
 
     private final InetSocketAddress remoteAddress;
     private boolean putReturnsNull = false;
@@ -82,9 +74,7 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
 
     private final AtomicBoolean used = new AtomicBoolean(false);
 
-    WiredChronicleMapStatelessClientBuilder(InetSocketAddress remoteAddress) {
-        this.remoteAddress = remoteAddress;
-    }
+
 
     InetSocketAddress remoteAddress() {
         return remoteAddress;
@@ -145,10 +135,10 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
 
         // todo clean this up
         if (hub == null)
-            hub = new WiredStatelessClientTcpConnectionHub(this);
+            hub = new WiredStatelessClientTcpConnectionHub(this, localIdentifier);
 
         if (!used.getAndSet(true)) {
-            return new WiredStatelessChronicleMap<K, V>(this);
+            return new WiredStatelessChronicleMap<K, V>(this, keyClass, valueClass, channelID);
 
         } else {
             throw new IllegalStateException(
@@ -156,5 +146,9 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
                             "Create a new ChronicleMapStatelessClientBuilder " +
                             "to create a new stateless client");
         }
+    }
+
+    public void identifier(byte identifier) {
+        this.localIdentifier = identifier;
     }
 }

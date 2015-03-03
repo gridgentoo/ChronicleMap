@@ -147,9 +147,13 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
             Bytes prevValue = prevValueOnPut(c);
             c.newTimestamp  = timestamp;
             c.newIdentifier = id;
-            c.writeReplicationBytes();
+            //c.writeReplicationBytes();
             c.put(value);
             return prevValue;
         }
     }
+
+
+
+
 }

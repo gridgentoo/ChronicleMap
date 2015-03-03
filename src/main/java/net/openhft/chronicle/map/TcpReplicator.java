@@ -72,7 +72,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
 
     public static final long TIMESTAMP_FACTOR = 10000;
     private static final int STATELESS_CLIENT = -127;
-    private static final int WIRED_CONNECTION = -126;
+    public static final int WIRED_CONNECTION = -126;
     private static final byte NOT_SET = (byte) HEARTBEAT.ordinal();
     private static final Logger LOG = LoggerFactory.getLogger(TcpReplicator.class.getName());
     private static final int BUFFER_SIZE = 0x100000; // 1MB
@@ -783,7 +783,26 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
 
             // sniff just a single byte from the socket and write it to attached.entryReader.in
             // this way we can switch to StatelessWiredConnector without reading any other data
-            socketChannel.read(ByteBuffer.wrap(data));
+            int len;
+            for (; ; ) {
+                len = socketChannel.read(ByteBuffer.wrap(data));
+                if (len != 0)
+                    break;
+            }
+
+
+            if (len == -1) {
+                socketChannel.register(selector, 0);
+                if (replicationConfig.autoReconnectedUponDroppedConnection()) {
+                    AbstractConnector connector = attached.connector;
+                    if (connector != null)
+                        connector.connectLater();
+                } else
+                    socketChannel.close();
+                return;
+            }
+
+
             byte b = data[0];
             attached.entryReader.in.put(b);
             attached.entryReader.out.limit(1);
@@ -791,7 +810,8 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
             if (b == WIRED_CONNECTION)
                 attached.useWire = true;
             forceRead = true;
-            attached.statelessWiredConnector = new StatelessWiredConnector(channelList);
+            attached.statelessWiredConnector = new StatelessWiredConnector(channelList, localIdentifier);
+            attached.handShakingComplete = true;
         }
 
         if (attached.useWire) {

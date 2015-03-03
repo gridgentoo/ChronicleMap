@@ -24,6 +24,7 @@ package net.openhft.chronicle.map;
 
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.bytes.BytesMarshallable;
+import net.openhft.chronicle.core.OS;
 import net.openhft.chronicle.wire.TextWire;
 import net.openhft.chronicle.wire.Wire;
 import net.openhft.lang.io.DirectStore;
@@ -37,11 +38,16 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
+
+import static java.nio.channels.SelectionKey.OP_READ;
+import static java.nio.channels.SelectionKey.OP_WRITE;
 
 /**
  * @author Rob Austin.
@@ -51,98 +57,206 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private static final Logger LOG = LoggerFactory.getLogger(StatelessWiredConnector.class);
 
 
-    static Field ADDRESS;
-    static Field CAPACITY;
+    private static final Field BB_ADDRESS;
+    private static final Field BB_CAPACITY;
+    private static final Method NATIVE_ADDRESS;
+    private static final Method NATIVE_CAPACITY;
+
 
     static {
+        Field bbAdress = null, bbCapacity = null;
+        Method nAddress = null, nCapacity = null;
         try {
-            ADDRESS = ByteBuffer.class.getDeclaredField("address");
-            ADDRESS.setAccessible(true);
 
-            CAPACITY = ByteBuffer.class.getDeclaredField("capacity");
-            CAPACITY.setAccessible(true);
+            bbAdress = Buffer.class.getDeclaredField("address");
+            bbAdress.setAccessible(true);
+            bbCapacity = Buffer.class.getDeclaredField("capacity");
+            bbCapacity.setAccessible(true);
+
+            nAddress = NativeBytes.class.getDeclaredMethod("address", long.class);
+            nAddress.setAccessible(true);
+            nCapacity = NativeBytes.class.getDeclaredMethod("capacity", long.class);
+            nCapacity.setAccessible(true);
+
         } catch (Exception e) {
             LOG.error("", e);
         }
+
+        BB_ADDRESS = bbAdress;
+        BB_CAPACITY = bbCapacity;
+        NATIVE_ADDRESS = nAddress;
+        NATIVE_CAPACITY = nCapacity;
     }
 
-    private final NativeBytes langBytes = new NativeBytes(0, 0);
+    private final NativeBytes inLangBytes = new NativeBytes(0, 0);
+    private final TextWire inWire = new TextWire(Bytes.elasticByteBuffer());
 
     private boolean handshingComplete;
+    private final TextWire outWire = new TextWire(Bytes.elasticByteBuffer());
     // private final byte identifier;
-
-    @Nullable
-    // maybe null if the server has not been set up to use channel
-    private List<Replica> channelList;
-
     private ArrayList<BytesChronicleMap> bytesChronicleMaps = new ArrayList<>();
-    private TextWire inWire = new TextWire(Bytes.elasticByteBuffer());
-    private TextWire outWire = new TextWire(Bytes.elasticByteBuffer());
-
-
-    MapIOBuffer mapIOBuffer = new MapIOBuffer() {
+    private final byte localIdentifier;
+    private final StringBuilder methodName = new StringBuilder();
+    private final ByteBuffer resultBuffer = ByteBuffer.allocateDirect(64);
+    private ByteBuffer inLanByteBuffer = ByteBuffer.allocateDirect(64);
+    private final MapIOBuffer mapIOBuffer = new MapIOBuffer() {
 
         @Override
-        public void ensureBufferSize(long l) {
-            outWire.bytes().ensureCapacity(l);
+        public void ensureBufferSize(long size) {
+
+            if (inLanByteBuffer.capacity() < size)
+                // reallocate the buffer in chunks of OS.pageSize() bytes
+                inLanByteBuffer = ByteBuffer.allocateDirect(OS.pageSize() * (1 + (int) (size / OS.pageSize())));
+
+
+            outWire.bytes().ensureCapacity(size);
+            try {
+
+                // move the lang byte buffer  so that its pointing to the same memory as the wireBuffer
+                long address = BB_ADDRESS.getLong(inLanByteBuffer);
+                NATIVE_ADDRESS.invoke(inLangBytes, address);
+                NATIVE_CAPACITY.invoke(inLangBytes, size + address);
+                inLangBytes.limit(size);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+
         }
 
         /**
          * maps the outWire.bytes() to lang bytes
+         *
          * @return lang bytes that represent the {@code outWire.bytes()}
          */
         @Override
         public net.openhft.lang.io.Bytes in() {
-            try {
-                ByteBuffer buffer = (ByteBuffer) outWire.bytes().underlyingObject();
-                langBytes.address(ADDRESS.getLong(buffer));
-                langBytes.capacity(CAPACITY.getLong(buffer));
-                langBytes.limit(buffer.limit());
-                langBytes.position(buffer.position());
-                return langBytes;
-            } catch (Exception e) {
-                LOG.error("", e);
-            }
-            return langBytes;
+            return inLangBytes;
         }
     };
-
-    private byte identifier;
-    private long transactionId;
     private long timestamp;
     private short channelId;
-    private String methodName;
+    @Nullable
+    // maybe null if the server has not been set up to use channel
+    private List<Replica> channelList;
+    private byte remoteIdentifier;
+    private Bytes resultBytes = Bytes.wrap(resultBuffer);
+    private SelectionKey key;
 
-    public StatelessWiredConnector(@Nullable List<Replica> channelList) {
+    public StatelessWiredConnector(@Nullable List<Replica> channelList, byte localIdentifier) {
         this.channelList = channelList;
+
         // final TextWire inWire = new TextWire(toChronicleBytes(inBytes));
         //  this.identifier = inWire.read(() -> "IDENTIFIER").int8();
+        this.localIdentifier = localIdentifier;
     }
 
     public void onRead(SocketChannel socketChannel, SelectionKey key) throws IOException {
-        socketChannel.read(inWireBuffer());
+        this.key = key;
 
-        if (nextWireMessage() == null)
+        if (!handshingComplete)
+            outWire.bytes().writeByte(localIdentifier);
+
+        final int len = readSocket(socketChannel);
+        assert inWire.bytes().remaining() < 999;
+        if (len == -1) {
+            socketChannel.close();
             return;
+        }
 
-        if (handshingComplete) {
-            onEvent();
-        } else
-            onHandShaking();
+        if (len == 0) {
+            System.out.println("nothing read");
+            return;
+        }
 
-    }
+        assert inWire.bytes().remaining() < 999;
 
-    public void onWrite(SocketChannel socketChannel, SelectionKey key) throws IOException {
-        socketChannel.write((ByteBuffer) outWire.bytes());
-        if (outWire.bytes().remaining() == 0) {
-            ((ByteBuffer) outWire.bytes().underlyingObject()).clear();
-            outWire.bytes().clear();
+        System.out.println("remaining=>" + inWire.bytes().remaining());
+
+        while (inWire.bytes().remaining() > 4) {
+
+            final long limit = inWire.bytes().limit();
+
+            if (nextWireMessage() == null) {
+                if (shouldCompactInBufffer())
+                    compactInBuffer();
+                else if (shouldClearInBuffer())
+                    clearInBuffer();
+                return;
+            }
+
+            if (!handshingComplete) {
+                System.out.println("doHandshaking");
+
+                onHandShaking();
+                System.out.println("end-doHandshaking");
+            } else {
+                System.out.println("onEvent");
+                onEvent();
+                System.out.println("end-onEvent");
+            }
+
+            System.out.println("limit=>" + outWire.bytes().limit());
+            assert inWire.bytes().remaining() < 999;
+            inWire.bytes().limit(limit);
+            assert inWire.bytes().remaining() < 999;
         }
     }
 
+    private void clearInBuffer() {
+        System.out.println("clear");
+        inWire.bytes().clear();
+        inWireBuffer().clear();
+    }
+
+    private boolean shouldClearInBuffer() {
+        return inWire.bytes().position() == inWireBuffer().position();
+    }
+
+    /**
+     * @return true if remaining space is less than 50%
+     */
+    private boolean shouldCompactInBufffer() {
+        return inWire.bytes().position() > 0 && inWire.bytes().remaining() < (inWireBuffer().capacity() / 2);
+    }
+
+    public void onWrite(SocketChannel socketChannel, SelectionKey key) throws IOException {
+
+        ((ByteBuffer) outWire.bytes().underlyingObject()).limit((int) outWire.bytes().position());
+        socketChannel.write((ByteBuffer) outWire.bytes().underlyingObject());
+
+        if (((ByteBuffer) outWire.bytes().underlyingObject()).remaining() == 0) {
+            ((ByteBuffer) outWire.bytes().underlyingObject()).clear();
+            outWire.bytes().clear();
+            key.interestOps(OP_READ);
+        }
+
+    }
+
+    private void compactInBuffer() {
+        System.out.println("compacting");
+        inWireBuffer().position((int) inWire.bytes().position());
+        inWireBuffer().limit(inWireBuffer().position());
+        inWireBuffer().compact();
+
+        inWire.bytes().position(0);
+        inWire.bytes().limit(0);
+    }
+
+    private ByteBuffer inWireBuffer() {
+        return (ByteBuffer) inWire.bytes().underlyingObject();
+    }
+
+    private int readSocket(SocketChannel socketChannel) throws IOException {
+        ByteBuffer dst = inWireBuffer();
+        int len = socketChannel.read(dst);
+        System.out.println("len=" + len);
+        int readUpTo = dst.position();
+        inWire.bytes().limit(readUpTo);
+        return len;
+    }
 
     private Wire nextWireMessage() {
-        if (inWireBuffer().remaining() < 4)
+        if (inWire.bytes().remaining() < 4)
             return null;
 
         final Bytes<?> bytes = inWire.bytes();
@@ -151,21 +265,21 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         inWire.bytes().ensureCapacity(bytes.position() + size);
 
         if (bytes.remaining() < size) {
+
+            assert size < 100000;
             return null;
         }
 
         inWire.bytes().limit(bytes.position() + size);
-        inWire.bytes().position(inWire.bytes().position() + 2);
+
+        // skip the size
+        inWire.bytes().skip(4);
+
         return inWire;
     }
 
-    private ByteBuffer inWireBuffer() {
-        return (ByteBuffer) inWire.bytes().underlyingObject();
-    }
-
-
     void onHandShaking() {
-        identifier = inWire.read(() -> "IDENTIFIER").int8();
+        remoteIdentifier = inWire.read(() -> "IDENTIFIER").int8();
         handshingComplete = true;
     }
 
@@ -173,10 +287,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     Work onEvent() {
 
         // it is assumed by this point that the buffer has all the bytes in it for this message
-        transactionId = inWire.read(() -> "TRANSACTION_ID").int64();
+        long transactionId = inWire.read(() -> "TRANSACTION_ID").int64();
         timestamp = inWire.read(() -> "TIME_STAMP").int64();
         channelId = inWire.read(() -> "CHANNEL_ID").int16();
-        methodName = inWire.read(() -> "METHOD_NAME").text();
+        inWire.read(() -> "METHOD_NAME").text(methodName);
 
         // for the length
         outWire.bytes().skip(4);
@@ -184,56 +298,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         // write the transaction id
         outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
 
-        switch (methodName) {
-
-            case "PUT":
+        if ("PUT".contentEquals(methodName))
                 return put();
-
-            default:
-                throw new IllegalStateException("unsupported event=" + methodName);
-        }
-    }
-
-    /**
-     * gets the map for this channel id
-     *
-     * @param channelId the ID of the map
-     * @return the chronicle map with this {@code channelId}
-     */
-    private ReplicatedChronicleMap map(short channelId) {
-
-        // todo this cast is a bit of a hack, improve later
-        final ReplicatedChronicleMap replicas =
-                (ReplicatedChronicleMap) channelList.get(channelId - 1);
-
-        if (replicas != null)
-            return replicas;
-
-        throw new IllegalStateException();
-    }
-
-    /**
-     * this is used to push the data straight into the entry in memory
-     *
-     * @param channelId the ID of the map
-     * @return a BytesChronicleMap used to update the memory which holds the chronicle map
-     */
-    private BytesChronicleMap bytesMap(short channelId) {
-
-        final BytesChronicleMap bytesChronicleMap = bytesChronicleMaps.get(channelId - 1);
-
-        if (bytesChronicleMap != null)
-            return bytesChronicleMap;
-
-        // grow the array
-        for (int i = bytesChronicleMaps.size(); i < channelId; i++) {
-            bytesChronicleMaps.add(null);
-        }
-
-        final ReplicatedChronicleMap delegate = map(channelId);
-        final BytesChronicleMap element = new BytesChronicleMap(delegate);
-        bytesChronicleMaps.set(channelId - 1, element);
-        return element;
+        else
+            throw new IllegalStateException("unsupported event=" + methodName);
 
     }
 
@@ -279,20 +347,98 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         return null;
     }
 
+    /**
+     * gets the map for this channel id
+     *
+     * @param channelId the ID of the map
+     * @return the chronicle map with this {@code channelId}
+     */
+    private ReplicatedChronicleMap map(short channelId) {
+
+        // todo this cast is a bit of a hack, improve later
+        final ReplicatedChronicleMap replicas =
+                (ReplicatedChronicleMap) channelList.get(channelId);
+
+        if (replicas != null)
+            return replicas;
+
+        throw new IllegalStateException();
+    }
+
+    /**
+     * this is used to push the data straight into the entry in memory
+     *
+     * @param channelId the ID of the map
+     * @return a BytesChronicleMap used to update the memory which holds the chronicle map
+     */
+    private BytesChronicleMap bytesMap(short channelId) {
+
+        final BytesChronicleMap bytesChronicleMap = (channelId < bytesChronicleMaps.size())
+                ? bytesChronicleMaps.get(channelId - 1)
+                : null;
+
+        if (bytesChronicleMap != null)
+            return bytesChronicleMap;
+
+        // grow the array
+        for (int i = bytesChronicleMaps.size(); i <= channelId; i++) {
+            bytesChronicleMaps.add(null);
+        }
+
+        final ReplicatedChronicleMap delegate = map(channelId);
+        final BytesChronicleMap element = new BytesChronicleMap(delegate);
+        bytesChronicleMaps.set(channelId, element);
+        return element;
+
+    }
+
     @Nullable
     private Work put() {
 
         final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
 
+
+        // skip 4 bytes for the size
+        outWire.bytes().skip(4);
+
         final BytesChronicleMap bytesMap = bytesMap(channelId);
-        bytesMap.output = mapIOBuffer;
 
         try {
-            bytesMap.put(reader, reader, timestamp, identifier);
-            outWire.bytes().position(langBytes.position());
+
+            inLanByteBuffer.clear();
+            inLangBytes.clear();
+
+            // todo
+            net.openhft.lang.io.Bytes result = bytesMap.put(reader, reader, timestamp, remoteIdentifier);
+
+
+            // clear the buffer we just used to write the lang bytes
+            inLanByteBuffer.clear();
+            inLangBytes.clear();
+
+
+            if (result != null && result.remaining() > 0) {
+
+                BB_ADDRESS.set(resultBuffer, result.address());
+                BB_CAPACITY.set(resultBuffer, result.capacity());
+                resultBytes.limit(result.capacity());
+
+                outWire.write(() -> "RESULT_IS_NULL").bool(false);
+                outWire.write(() -> "RESULT").bytes(resultBytes);
+            } else {
+                outWire.write(() -> "RESULT_IS_NULL").bool(true);
+            }
+
+            key.interestOps(OP_WRITE | OP_READ);
+
         } catch (Throwable e) {
+
+            // todo remove
+            e.printStackTrace();
+
             // move back to the start
             outWire.bytes().position(2);
+
             return sendException(outWire, e);
         } finally {
             bytesMap.output = null;

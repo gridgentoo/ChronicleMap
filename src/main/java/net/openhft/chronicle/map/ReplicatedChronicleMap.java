@@ -23,7 +23,6 @@ import net.openhft.chronicle.hash.hashing.LongHashFunction;
 import net.openhft.chronicle.hash.impl.ContextFactory;
 import net.openhft.chronicle.hash.impl.HashContext;
 import net.openhft.chronicle.hash.replication.AbstractReplication;
-import net.openhft.chronicle.hash.replication.LateUpdateException;
 import net.openhft.chronicle.hash.replication.TimeProvider;
 import net.openhft.chronicle.hash.serialization.BytesReader;
 import net.openhft.chronicle.hash.serialization.internal.BytesBytesInterop;
@@ -376,8 +375,12 @@ final class ReplicatedChronicleMap<K, KI, MKI extends MetaBytesInterop<K, ? supe
         }
 
         void initReplicationUpdate0() {
-            newTimestamp = rm().timeProvider.currentTime();
-            newIdentifier = rm().identifier();
+
+            if (newTimestamp == 0)
+                newTimestamp = rm().timeProvider.currentTime();
+
+            if (newIdentifier == 0)
+                newIdentifier = rm().identifier();
         }
 
         boolean remoteUpdate() {

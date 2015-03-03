@@ -22,21 +22,20 @@ import net.openhft.chronicle.bytes.BytesStore;
 import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.map.ChronicleMap;
-import net.openhft.chronicle.util.ShortConsumer;
+import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
 import net.openhft.lang.io.ByteBufferBytes;
 import net.openhft.lang.io.Bytes;
-import org.junit.Before;
+import org.jetbrains.annotations.NotNull;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.nio.ByteBuffer.allocate;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static net.openhft.chronicle.map.ChronicleMapBuilder.of;
-import static net.openhft.chronicle.map.ChronicleMapStatelessClientBuilder.createClientOf;
 import static org.junit.Assert.assertEquals;
 
 /**
@@ -44,28 +43,28 @@ import static org.junit.Assert.assertEquals;
  */
 public class TestWire {
 
-    public static class Details {
-        Class keyClass;
-        Class valueClass;
-        short channelID;
-    }
 
-    private ChronicleMap<String, Details> map1a;
+    private ChronicleMap<byte[], byte[]> map1a;
+
+    private static <K, V> ChronicleMap<K, V> localClient(int port,
+                                                         byte identifier,
+                                                         @NotNull Class keyClass,
+                                                         @NotNull Class valueClass,
+                                                         short channelID) throws IOException {
+
+        final WiredChronicleMapStatelessClientBuilder<K, V> builder = new WiredChronicleMapStatelessClientBuilder<K, V>(new InetSocketAddress("localhost", port), keyClass, valueClass, channelID);
+        builder.identifier(identifier);
+        return builder.create();
+    }
     private ChronicleMap<byte[], byte[]> map2a;
     private ChronicleMap<byte[], byte[]> map3a;
 
 
     private ReplicationHub hubA;
 
-    public static <K, V> ChronicleMap<K, V> localClient(int port) throws IOException {
-        return createClientOf(new InetSocketAddress("localhost", port));
-    }
-
-
-
-
-    @Before
-    public void setup() throws IOException {
+    @Ignore
+    @Test
+    public void test() throws IOException {
 
         {
             final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
@@ -76,34 +75,36 @@ public class TestWire {
                     .createWithId((byte) 1);
 
             // this is how you add maps after the custer is created
-            map1a = of(String.class, Details.class)
-                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 2)).create();
 
             map2a = of(byte[].class, byte[].class)
                     .entries(1000)
-                    .instance().replicatedViaChannel(hubA.createChannel((short) 2)).create();
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 3)).create();
 
             map3a = of(byte[].class, byte[].class)
                     .entries(1000)
-                    .instance().replicatedViaChannel(hubA.createChannel((short) 2)).create();
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 4)).create();
 
 
             byte[] key = new byte[4];
             Bytes keyBuffer = new ByteBufferBytes(ByteBuffer.wrap(key));
 
 
-            try (ChronicleMap<byte[], byte[]> statelessMap = localClient(8086)) {
+            short channelID = (short) 2;
+            byte identifier = (byte) 2;
+            try (ChronicleMap<String, String> statelessMap = localClient(8086, identifier, String.class, String.class, channelID)) {
 
                 for (int i = 0; i < 10; i++) {
-                    keyBuffer.clear();
-                    keyBuffer.writeInt(i);
-                    statelessMap.put(key, key);
+                    try {
+                        statelessMap.put("Hello", "World");
+                    } catch (Throwable t) {
+                        t.printStackTrace();
+                    }
                 }
 
                 assertEquals(10, statelessMap.size());
             }
-
-
 
 
             net.openhft.chronicle.bytes.Bytes bytes = BytesStore.wrap(allocate(128)).bytes();
@@ -115,7 +116,45 @@ public class TestWire {
 
     }
 
+    @Test
+    public void testName() throws Exception {
+
+        TextWire wire = new TextWire(net.openhft.chronicle.bytes.Bytes.elasticByteBuffer());
+
+        WireOut world = wire.write(() -> "hello").text("world");
+        System.out.println(wire.bytes());
 
 
+    }
 
+    public static class Details implements Marshallable {
+
+        Class keyClass;
+        Class valueClass;
+        short channelID;
+
+        public Details(Class keyClass, Class valueClass, short channelID) {
+            this.keyClass = keyClass;
+            this.valueClass = valueClass;
+            this.channelID = channelID;
+        }
+
+        @Override
+        public void writeMarshallable(WireOut wire) {
+            wire.write(() -> "keyClass").text(keyClass.getName());
+            wire.write(() -> "valueClass").text(valueClass.getName());
+            wire.write(() -> "channelID").int16(channelID);
+        }
+
+        @Override
+        public void readMarshallable(WireIn wire) throws IllegalStateException {
+            try {
+                keyClass = Class.forName(wire.read(() -> "keyClass").text());
+                valueClass = Class.forName(wire.read(() -> "valueClass").text());
+                channelID = wire.read(() -> "channelID").int16();
+            } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 }
