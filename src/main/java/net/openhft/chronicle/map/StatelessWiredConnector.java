@@ -153,8 +153,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     public void onRead(SocketChannel socketChannel, SelectionKey key) throws IOException {
         this.key = key;
 
-        if (!handshingComplete)
-            outWire.bytes().writeByte(localIdentifier);
+       // if (!handshingComplete)
+        //    outWire.bytes().writeByte(localIdentifier);
 
         final int len = readSocket(socketChannel);
         assert inWire.bytes().remaining() < 999;
@@ -184,16 +184,16 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 return;
             }
 
-            if (!handshingComplete) {
-                System.out.println("doHandshaking");
+            // if (!handshingComplete) {
+            System.out.println("doHandshaking");
 
-                onHandShaking();
-                System.out.println("end-doHandshaking");
-            } else {
-                System.out.println("onEvent");
-                onEvent();
-                System.out.println("end-onEvent");
-            }
+            //  onHandShaking();
+            //    System.out.println("end-doHandshaking");
+            // } else {
+            System.out.println("onEvent");
+            onEvent();
+            System.out.println("end-onEvent");
+            // }
 
             System.out.println("limit=>" + outWire.bytes().limit());
             assert inWire.bytes().remaining() < 999;
@@ -279,7 +279,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
     void onHandShaking() {
-        remoteIdentifier = inWire.read(() -> "IDENTIFIER").int8();
+        //   remoteIdentifier = inWire.read(() -> "IDENTIFIER").int8();
         handshingComplete = true;
     }
 
@@ -287,21 +287,29 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     Work onEvent() {
 
         // it is assumed by this point that the buffer has all the bytes in it for this message
+
+        System.out.println("StatelessWiredConnector - trans=" + Bytes.toHex(inWire.bytes()));
         long transactionId = inWire.read(() -> "TRANSACTION_ID").int64();
         timestamp = inWire.read(() -> "TIME_STAMP").int64();
         channelId = inWire.read(() -> "CHANNEL_ID").int16();
         inWire.read(() -> "METHOD_NAME").text(methodName);
 
         // for the length
+        long markStart = outWire.bytes().position();
         outWire.bytes().skip(4);
 
-        // write the transaction id
-        outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+        try {
+            // write the transaction id
+            outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
 
-        if ("PUT".contentEquals(methodName))
+            if ("PUT".contentEquals(methodName))
                 return put();
-        else
-            throw new IllegalStateException("unsupported event=" + methodName);
+            else
+                throw new IllegalStateException("unsupported event=" + methodName);
+        } finally {
+            int len = (int) (outWire.bytes().position() - markStart);
+            outWire.bytes().writeInt(markStart, len);
+        }
 
     }
 
@@ -436,8 +444,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             // todo remove
             e.printStackTrace();
 
-            // move back to the start
-            outWire.bytes().position(2);
+            // move back to just after the size
+            outWire.bytes().position(4);
 
             return sendException(outWire, e);
         } finally {

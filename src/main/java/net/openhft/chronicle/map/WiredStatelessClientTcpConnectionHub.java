@@ -39,7 +39,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static net.openhft.chronicle.map.AbstractChannelReplicator.SIZE_OF_SIZE;
-import static net.openhft.chronicle.map.AbstractChannelReplicator.openSocketChannel;
 import static net.openhft.chronicle.map.WiredStatelessChronicleMap.EventId.APPLICATION_VERSION;
 
 /**
@@ -186,7 +185,7 @@ public class WiredStatelessClientTcpConnectionHub {
         }
         clientChannel = result;
 
-        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(128);
+       /* ByteBuffer byteBuffer = ByteBuffer.allocateDirect(128);
         Bytes<ByteBuffer> bufferBytes = Bytes.wrap(byteBuffer);
         TextWire wire = new TextWire(bufferBytes);
         wire.bytes().skip(4);
@@ -221,7 +220,7 @@ public class WiredStatelessClientTcpConnectionHub {
                 //
             }
 
-        }
+        }*/
 
     }
 
@@ -328,7 +327,7 @@ public class WiredStatelessClientTcpConnectionHub {
 
     @SuppressWarnings("WeakerAccess")
     @NotNull
-      String clientVersion() {
+    String clientVersion() {
         return BuildVersion.version();
     }
 
@@ -336,7 +335,7 @@ public class WiredStatelessClientTcpConnectionHub {
     /**
      * sends data to the server via TCP/IP
      */
-      void writeSocket() {
+    void writeSocket() {
 
         assert outBytesLock().isHeldByCurrentThread();
         assert !inBytesLock().isHeldByCurrentThread();
@@ -430,11 +429,13 @@ public class WiredStatelessClientTcpConnectionHub {
                 final int remainingBytes0 = messageSize - SIZE_OF_SIZE;
                 readSocket(remainingBytes0, timeoutTime);
 
-                 intWire.bytes().skip(4);
+                intWire.bytes().skip(4);
                 intWire.bytes().limit(messageSize);
-                String text = intWire.read(() -> "TRANSACTION_ID").text();
-                System.out.println(text);
-                long transactionId0 =0;
+                System.out.println("trans="+Bytes.toHex(intWire.bytes()));
+                long  trans = intWire.read(() -> "TRANSACTION_ID").int64();
+                System.out.println(trans);
+                long transactionId0 = 0;
+
                 System.out.println("transactionId0=" + transactionId0);
                 // check the transaction id is reasonable
           /*      assert transactionId0 > 1410000000000L * TcpReplicator.TIMESTAMP_FACTOR :
@@ -633,8 +634,8 @@ public class WiredStatelessClientTcpConnectionHub {
 
     @SuppressWarnings("SameParameterValue")
     @Nullable
-      <O extends Marshallable> O fetchObject(final Class<O> tClass,
-                                             @NotNull final String methodName, short channelID) {
+    <O extends Marshallable> O fetchObject(final Class<O> tClass,
+                                           @NotNull final String methodName, short channelID) {
         final long startTime = System.currentTimeMillis();
         long transactionId;
 
@@ -663,7 +664,7 @@ public class WiredStatelessClientTcpConnectionHub {
 
     @SuppressWarnings("SameParameterValue")
     @Nullable
-      String proxyReturnString(@NotNull final String messageId, short channelID) {
+    String proxyReturnString(@NotNull final String messageId, short channelID) {
         final long startTime = System.currentTimeMillis();
         long transactionId;
 
@@ -712,11 +713,11 @@ public class WiredStatelessClientTcpConnectionHub {
     /**
      * mark the location of the outWire size
      */
-      void markSize() {
+    void markSize() {
 
-          assert outBytesLock().isHeldByCurrentThread();
+        assert outBytesLock().isHeldByCurrentThread();
 
-          // this is where the size will go
+        // this is where the size will go
         sizeMark = outWire.bytes().position();
 
 
@@ -724,7 +725,7 @@ public class WiredStatelessClientTcpConnectionHub {
         outWire.bytes().skip(4);
     }
 
-      void startTime(long startTime) {
+    void startTime(long startTime) {
         this.startTime = startTime;
     }
 }

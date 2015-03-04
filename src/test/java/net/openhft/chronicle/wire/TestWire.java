@@ -26,7 +26,6 @@ import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
 import net.openhft.lang.io.ByteBufferBytes;
 import net.openhft.lang.io.Bytes;
 import org.jetbrains.annotations.NotNull;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -62,7 +61,7 @@ public class TestWire {
 
     private ReplicationHub hubA;
 
-    @Ignore
+
     @Test
     public void test() throws IOException {
 
