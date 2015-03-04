@@ -18,6 +18,9 @@
 
 package net.openhft.chronicle.map;
 
+import net.openhft.chronicle.bytes.Bytes;
+import net.openhft.chronicle.bytes.EscapingStopCharTester;
+import net.openhft.chronicle.bytes.StopCharTesters;
 import net.openhft.chronicle.hash.function.SerializableFunction;
 import net.openhft.chronicle.wire.Marshallable;
 import net.openhft.chronicle.wire.Wire;
@@ -339,7 +342,7 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
     }
 
 
-    private V readValue(long transactionId, long startTime, V usingValue) {
+    private V readValue(long transactionId, long startTime, final V usingValue) {
         assert !hub.outBytesLock().isHeldByCurrentThread();
         long timeoutTime = startTime + hub.timeoutMs;
 
@@ -348,22 +351,40 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
             final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
 
-            if (usingValue == null)
-                usingValue = newValueInstance();
-
             if (wireIn.read(() -> "IS_EXCEPTION").bool())
                 throw new RuntimeException(wireIn.read(() -> "EXCEPTION").text());
 
-             if (wireIn.read(() -> "RESULT_IS_NULL").bool())
+            if (wireIn.read(() -> "RESULT_IS_NULL").bool())
                 return null;
             if (StringBuilder.class.isAssignableFrom(vClass)) {
                 wireIn.read(() -> "RESULT").text((StringBuilder) usingValue);
                 return usingValue;
-            } else if (usingValue instanceof Marshallable) {
+            } else if (Marshallable.class.isAssignableFrom(vClass)) {
+
+                if (usingValue == null)
+                    try {
+                        V v = vClass.newInstance();
+                        wireIn.read(() -> "RESULT").marshallable((Marshallable) v);
+                        return v;
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+
                 wireIn.read(() -> "RESULT").marshallable((Marshallable) usingValue);
+
                 return usingValue;
+            } else if (usingValue instanceof StringBuilder) {
+
+                // todo optomize
+
+                StringBuilder sb = new StringBuilder();
+                Bytes b = Bytes.elasticByteBuffer();
+                wireIn.read(() -> "RESULT").bytes(b);
+                b.parseUTF(sb, EscapingStopCharTester.escaping(StopCharTesters.COMMA_STOP));
+                return (V) sb.toString();
+
             } else if (CharSequence.class.isAssignableFrom(vClass)) {
-                return (V) wireIn.read(() -> "RESULT").text();
+                return (V) new String(wireIn.read(() -> "RESULT").bytes());
             } else {
                 throw new IllegalStateException("unsupported type");
             }
@@ -586,6 +607,7 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         if (resultType == vClass)
             return (R) readValue(transactionId, startTime, null);
+
         else
             throw new UnsupportedOperationException("class of type class=" + resultType + " is not " +
                     "supported");
