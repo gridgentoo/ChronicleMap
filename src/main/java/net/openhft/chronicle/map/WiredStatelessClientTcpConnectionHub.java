@@ -377,7 +377,6 @@ public class WiredStatelessClientTcpConnectionHub {
         if (position > Integer.MAX_VALUE || position < Integer.MIN_VALUE)
             throw new IllegalStateException("message too large");
 
-        System.out.println("writeLength len=" + position);
         outWire.bytes().writeInt(sizeMark, (int) position);
     }
 
@@ -431,12 +430,10 @@ public class WiredStatelessClientTcpConnectionHub {
 
                 intWire.bytes().skip(4);
                 intWire.bytes().limit(messageSize);
-                System.out.println("trans="+Bytes.toHex(intWire.bytes()));
-                long  trans = intWire.read(() -> "TRANSACTION_ID").int64();
-                System.out.println(trans);
-                long transactionId0 = 0;
 
-                System.out.println("transactionId0=" + transactionId0);
+                long  transactionId0 = intWire.read(() -> "TRANSACTION_ID").int64();
+
+
                 // check the transaction id is reasonable
           /*      assert transactionId0 > 1410000000000L * TcpReplicator.TIMESTAMP_FACTOR :
                         "TransactionId too small " + transactionId0 + " messageSize " + messageSize;

@@ -18,19 +18,17 @@
 
 package net.openhft.chronicle.wire;
 
+import junit.framework.Assert;
 import net.openhft.chronicle.bytes.BytesStore;
 import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.map.ChronicleMap;
 import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
-import net.openhft.lang.io.ByteBufferBytes;
-import net.openhft.lang.io.Bytes;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.ByteBuffer;
 
 import static java.nio.ByteBuffer.allocate;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -55,6 +53,7 @@ public class TestWire {
         builder.identifier(identifier);
         return builder.create();
     }
+
     private ChronicleMap<byte[], byte[]> map2a;
     private ChronicleMap<byte[], byte[]> map3a;
 
@@ -63,7 +62,7 @@ public class TestWire {
 
 
     @Test
-    public void test() throws IOException {
+    public void testPutStringWithChannels() throws IOException {
 
         {
             final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
@@ -75,34 +74,35 @@ public class TestWire {
 
             // this is how you add maps after the custer is created
             map1a = of(byte[].class, byte[].class)
-                    .instance().replicatedViaChannel(hubA.createChannel((short) 2)).create();
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
 
             map2a = of(byte[].class, byte[].class)
                     .entries(1000)
-                    .instance().replicatedViaChannel(hubA.createChannel((short) 3)).create();
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 2)).create();
 
             map3a = of(byte[].class, byte[].class)
                     .entries(1000)
-                    .instance().replicatedViaChannel(hubA.createChannel((short) 4)).create();
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 3)).create();
 
 
             byte[] key = new byte[4];
-            Bytes keyBuffer = new ByteBufferBytes(ByteBuffer.wrap(key));
 
-
-            short channelID = (short) 2;
+            short channelID = (short) 1;
             byte identifier = (byte) 2;
             try (ChronicleMap<String, String> statelessMap = localClient(8086, identifier, String.class, String.class, channelID)) {
 
                 for (int i = 0; i < 10; i++) {
                     try {
-                        statelessMap.put("Hello", "World");
+                        statelessMap.put("Hello" + i, "World");
                     } catch (Throwable t) {
                         t.printStackTrace();
                     }
                 }
 
-                assertEquals(10, statelessMap.size());
+                assertEquals(10, map1a.size());
+
+                // check that the bytes maps is correct
+                assertEquals("World", new String(map1a.get("Hello1".getBytes())));
             }
 
 
@@ -112,6 +112,47 @@ public class TestWire {
 
         }
 
+
+    }
+
+
+    @Test
+    public void testPutMarshanleWithChannels() throws IOException {
+
+        {
+            final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                    .of(8086)
+                    .heartBeatInterval(1, SECONDS);
+
+            hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                    .createWithId((byte) 1);
+
+            // this is how you add maps after the custer is created
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+            map2a = of(byte[].class, byte[].class)
+                    .entries(1000)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 2)).create();
+
+            map3a = of(byte[].class, byte[].class)
+                    .entries(1000)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 3)).create();
+
+
+            byte[] key = new byte[4];
+
+            short channelID = (short) 1;
+            byte identifier = (byte) 2;
+
+
+            ChronicleMap<String, Details> statelessMap = localClient(8086, identifier, String.class, Details.class, (byte) 1);
+            statelessMap.put("FirstMap", new Details(String.class, String.class, (byte) 1));
+
+            final Details firstMap = statelessMap.get("FirstMap");
+            Assert.assertEquals(1, firstMap.channelID);
+
+        }
 
     }
 

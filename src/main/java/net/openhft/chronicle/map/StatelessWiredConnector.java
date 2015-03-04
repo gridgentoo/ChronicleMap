@@ -141,6 +141,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private byte remoteIdentifier;
     private Bytes resultBytes = Bytes.wrap(resultBuffer);
     private SelectionKey key;
+    private long transactionId;
 
     public StatelessWiredConnector(@Nullable List<Replica> channelList, byte localIdentifier) {
         this.channelList = channelList;
@@ -153,7 +154,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     public void onRead(SocketChannel socketChannel, SelectionKey key) throws IOException {
         this.key = key;
 
-       // if (!handshingComplete)
+        // if (!handshingComplete)
         //    outWire.bytes().writeByte(localIdentifier);
 
         final int len = readSocket(socketChannel);
@@ -164,13 +165,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         }
 
         if (len == 0) {
-            System.out.println("nothing read");
             return;
         }
 
         assert inWire.bytes().remaining() < 999;
-
-        System.out.println("remaining=>" + inWire.bytes().remaining());
 
         while (inWire.bytes().remaining() > 4) {
 
@@ -184,18 +182,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 return;
             }
 
-            // if (!handshingComplete) {
-            System.out.println("doHandshaking");
 
-            //  onHandShaking();
-            //    System.out.println("end-doHandshaking");
-            // } else {
-            System.out.println("onEvent");
             onEvent();
-            System.out.println("end-onEvent");
-            // }
-
-            System.out.println("limit=>" + outWire.bytes().limit());
             assert inWire.bytes().remaining() < 999;
             inWire.bytes().limit(limit);
             assert inWire.bytes().remaining() < 999;
@@ -203,7 +191,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
     private void clearInBuffer() {
-        System.out.println("clear");
         inWire.bytes().clear();
         inWireBuffer().clear();
     }
@@ -233,7 +220,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
     private void compactInBuffer() {
-        System.out.println("compacting");
         inWireBuffer().position((int) inWire.bytes().position());
         inWireBuffer().limit(inWireBuffer().position());
         inWireBuffer().compact();
@@ -249,7 +235,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private int readSocket(SocketChannel socketChannel) throws IOException {
         ByteBuffer dst = inWireBuffer();
         int len = socketChannel.read(dst);
-        System.out.println("len=" + len);
         int readUpTo = dst.position();
         inWire.bytes().limit(readUpTo);
         return len;
@@ -288,8 +273,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         // it is assumed by this point that the buffer has all the bytes in it for this message
 
-        System.out.println("StatelessWiredConnector - trans=" + Bytes.toHex(inWire.bytes()));
-        long transactionId = inWire.read(() -> "TRANSACTION_ID").int64();
+        transactionId = inWire.read(() -> "TRANSACTION_ID").int64();
         timestamp = inWire.read(() -> "TIME_STAMP").int64();
         channelId = inWire.read(() -> "CHANNEL_ID").int16();
         inWire.read(() -> "METHOD_NAME").text(methodName);
@@ -314,13 +298,13 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
 
-    private void writeLength(@NotNull final Wire textWire) {
+    private void writeLength(@NotNull final Wire textWire, long start) {
 
         if (textWire.bytes().position() > Integer.MAX_VALUE)
             throw new IllegalStateException("position too large");
 
         // write the size
-        textWire.bytes().writeInt(0, (int) textWire.bytes().position());
+        textWire.bytes().writeInt(start, (int) (textWire.bytes().position() - start));
     }
 
     /**
@@ -351,6 +335,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         final StringWriter sw = new StringWriter();
         final PrintWriter pw = new PrintWriter(sw);
         e.printStackTrace(pw);
+        outWire.write(() -> "IS_EXCEPTION").bool(true);
         wire.write(() -> "EXCEPTION").text(sw.toString());
         return null;
     }
@@ -405,8 +390,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
 
-
-        // skip 4 bytes for the size
+        // skip 4 bytes where we will write the size
+        long locationOfSize = outWire.bytes().position();
         outWire.bytes().skip(4);
 
         final BytesChronicleMap bytesMap = bytesMap(channelId);
@@ -418,42 +403,80 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             // todo
             net.openhft.lang.io.Bytes result = bytesMap.put(reader, reader, timestamp, remoteIdentifier);
-
-
-            // clear the buffer we just used to write the lang bytes
-            inLanByteBuffer.clear();
-            inLangBytes.clear();
-
-
+            outWire.write(() -> "IS_EXCEPTION").bool(false);
             if (result != null && result.remaining() > 0) {
-
                 BB_ADDRESS.set(resultBuffer, result.address());
                 BB_CAPACITY.set(resultBuffer, result.capacity());
                 resultBytes.limit(result.capacity());
-
                 outWire.write(() -> "RESULT_IS_NULL").bool(false);
                 outWire.write(() -> "RESULT").bytes(resultBytes);
             } else {
                 outWire.write(() -> "RESULT_IS_NULL").bool(true);
             }
 
-            key.interestOps(OP_WRITE | OP_READ);
+            nofityDataWritten();
 
         } catch (Throwable e) {
 
-            // todo remove
-            e.printStackTrace();
-
-            // move back to just after the size
-            outWire.bytes().position(4);
-
+            // move back to just after where the size
+            outWire.bytes().position(locationOfSize + 4);
             return sendException(outWire, e);
         } finally {
             bytesMap.output = null;
-            writeLength(outWire);
+            writeLength(outWire, locationOfSize);
         }
 
         return null;
+    }
+
+
+    @Nullable
+    private Work get() {
+
+        final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1");
+
+        // skip 4 bytes where we will write the size
+        long locationOfSize = outWire.bytes().position();
+        outWire.bytes().skip(4);
+
+        final BytesChronicleMap bytesMap = bytesMap(channelId);
+
+        try {
+
+            inLanByteBuffer.clear();
+            inLangBytes.clear();
+
+            // todo
+            net.openhft.lang.io.Bytes result = bytesMap.get(reader);
+            outWire.write(() -> "IS_EXCEPTION").bool(false);
+            if (result != null && result.remaining() > 0) {
+                BB_ADDRESS.set(resultBuffer, result.address());
+                BB_CAPACITY.set(resultBuffer, result.capacity());
+                resultBytes.limit(result.capacity());
+                outWire.write(() -> "RESULT_IS_NULL").bool(false);
+                outWire.write(() -> "RESULT").bytes(resultBytes);
+            } else {
+                outWire.write(() -> "RESULT_IS_NULL").bool(true);
+            }
+
+            nofityDataWritten();
+
+        } catch (Throwable e) {
+
+            // move back to just after where the size
+            outWire.bytes().position(locationOfSize + 4);
+            return sendException(outWire, e);
+        } finally {
+            bytesMap.output = null;
+            writeLength(outWire, locationOfSize);
+        }
+
+        return null;
+    }
+
+
+    private void nofityDataWritten() {
+        key.interestOps(OP_WRITE | OP_READ);
     }
 
 

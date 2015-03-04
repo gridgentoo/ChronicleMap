@@ -330,9 +330,7 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         assert !hub.inBytesLock().isHeldByCurrentThread();
 
         if (value instanceof CharSequence) {
-
             hub.outWire().write(() -> fieldName).text((CharSequence) value);
-            System.out.println(hub.outWire().bytes().position() + "fieldName=" + fieldName + ",value=" + value);
         } else if (value instanceof Marshallable) {
             hub.outWire().write(() -> fieldName).marshallable((Marshallable) value);
         } else {
@@ -353,15 +351,19 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
             if (usingValue == null)
                 usingValue = newValueInstance();
 
-            if (wireIn.read(() -> "RESULT_IS_NULL").bool())
-                return null;
+            if (wireIn.read(() -> "IS_EXCEPTION").bool())
+                throw new RuntimeException(wireIn.read(() -> "EXCEPTION").text());
 
-            if (usingValue instanceof StringBuilder) {
+             if (wireIn.read(() -> "RESULT_IS_NULL").bool())
+                return null;
+            if (StringBuilder.class.isAssignableFrom(vClass)) {
                 wireIn.read(() -> "RESULT").text((StringBuilder) usingValue);
                 return usingValue;
             } else if (usingValue instanceof Marshallable) {
                 wireIn.read(() -> "RESULT").marshallable((Marshallable) usingValue);
                 return usingValue;
+            } else if (CharSequence.class.isAssignableFrom(vClass)) {
+                return (V) wireIn.read(() -> "RESULT").text();
             } else {
                 throw new IllegalStateException("unsupported type");
             }
@@ -425,7 +427,6 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         return readBoolean(transactionId, startTime);
 
     }
-
 
 
     @SuppressWarnings("SameParameterValue")

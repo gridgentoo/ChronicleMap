@@ -545,13 +545,13 @@ final class ReplicatedChronicleMap<K, KI, MKI extends MetaBytesInterop<K, ? supe
         }
 
         private boolean testTimeStampInSensibleRange() {
-            if (rm().timeProvider == TimeProvider.SYSTEM) {
+         /*   if (rm().timeProvider == TimeProvider.SYSTEM) {
                 long currentTime = TimeProvider.SYSTEM.currentTime();
                 assert Math.abs(currentTime - timestamp) <= 100000000 :
                         "unrealistic timestamp: " + timestamp;
                 assert Math.abs(currentTime - newTimestamp) <= 100000000 :
                         "unrealistic newTimestamp: " + newTimestamp;
-            }
+            }*/
             return true;
         }
 
