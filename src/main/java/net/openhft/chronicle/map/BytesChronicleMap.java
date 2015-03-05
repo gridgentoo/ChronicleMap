@@ -136,7 +136,7 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
         throw new UnsupportedOperationException();
     }
 
-    public Bytes put(Bytes key, Bytes value, long timestamp, byte id) {
+    public Bytes put(Bytes key, Bytes value, long timestamp, byte remoteIdentifier) {
         // todo
         try (ReplicatedChronicleMap.BytesReplicatedContext c = (ReplicatedChronicleMap.BytesReplicatedContext) context(key)) {
             // We cannot read the previous value using just a read lock, because then we will need
@@ -146,7 +146,7 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
             c.updateLock().lock();
             Bytes prevValue = prevValueOnPut(c);
             c.newTimestamp  = timestamp;
-            c.newIdentifier = id;
+            c.newIdentifier = remoteIdentifier;
             //c.writeReplicationBytes();
             c.put(value);
             return prevValue;
@@ -154,6 +154,53 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
     }
 
 
+    Bytes putIfAbsent(Bytes key, Bytes value, long timestamp, byte remoteIdentifier) {
+        checkValue(value);
+        try (ReplicatedChronicleMap.BytesReplicatedContext c = (ReplicatedChronicleMap.BytesReplicatedContext) context(key)) {
+            // putIfAbsent() shouldn't actually put most of the time,
+            // so check if the key is present under read lock first:
+            if (c.readLock().tryLock()) {
+                // c.get() returns cached value, that might be unexpected by user,
+                // so use getUsing(null) which surely creates a new value instance:
+                Bytes currentValue = c.getUsing(null);
+                if (currentValue != null)
+                    return currentValue;
+                // Key is absent
+                upgradeReadToUpdateLockWithUnlockingIfNeeded(c);
+            }
+            // Entry with this key might be put into the map before we acquired
+            // update lock (exclusive) at any time, so even if we successfully upgraded
+            // to update lock, we should check if the value is still absent again
 
+            // todo check if this lock should be removed as its missing from the base interface
+            c.updateLock().lock();
 
+            Bytes currentValue = c.getUsing(null);
+            if (currentValue != null)
+                return currentValue;
+            c.newTimestamp = timestamp;
+            c.newIdentifier = remoteIdentifier;
+            // Key is absent
+            c.put(value);
+            return null;
+        }
+    }
+
+    public boolean remove(Bytes key, Bytes value, long timestamp, byte remoteIdentifier) {
+
+        if (value == null)
+            return false; // CHM compatibility; General ChronicleMap policy is to throw NPE
+
+        checkValue((Bytes) value);
+        try (ReplicatedChronicleMap.BytesReplicatedContext c = (ReplicatedChronicleMap.BytesReplicatedContext) context(key)) {
+            // remove(key, value) should find the entry & remove most of the time,
+            // so don't try to check key presence and value equivalence under read lock first,
+            // as in putIfAbsent()/acquireUsing(), start with update lock:
+            c.updateLock().lock();
+            c.newTimestamp = timestamp;
+            c.newIdentifier = remoteIdentifier;
+            return c.containsKey() && c.valueEqualTo(value) && c.remove();
+        }
+
+    }
 }
