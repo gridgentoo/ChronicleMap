@@ -24,7 +24,6 @@ import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.map.ChronicleMap;
 import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
 import org.jetbrains.annotations.NotNull;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -94,9 +93,8 @@ public class TestWire {
     }
 
 
-    @Ignore
     @Test
-    public void testPutMarshanleWithChannels() throws IOException, InterruptedException {
+    public void testPutMarshallableWithChannels() throws IOException, InterruptedException {
 
         {
             final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
@@ -120,19 +118,20 @@ public class TestWire {
 
             byte identifier = (byte) 2;
 
-            final ChronicleMap<String, Details> statelessMap = localClient(8086, identifier, String.class, Details.class, (byte) 1);
+            final WiredChronicleMapStatelessClientBuilder<String, Details> builder = new WiredChronicleMapStatelessClientBuilder<String, Details>(new InetSocketAddress("localhost", 8086), String.class, Details.class, (short) (byte) 1);
+            builder.identifier(identifier);
+            builder.putReturnsNull(true);
+            final ChronicleMap<String, Details> statelessMap = builder.create();
 
-            final Details details = new Details();
-            details.keyClass = String.class;
-            details.valueClass = String.class;
+            final Details expected = new Details();
+            expected.keyClass = String.class;
+            expected.valueClass = String.class;
 
-            statelessMap.put("FirstMap", details);
+            statelessMap.put("FirstMap", expected);
 
-            final Details firstMap = statelessMap.get("FirstMap");
+            final Details actual = statelessMap.get("FirstMap");
 
-            Thread.sleep(100);
-            Assert.assertNotNull(map1a.get("FirstMap".getBytes()));
-            Assert.assertEquals(1, firstMap.channelID);
+            Assert.assertEquals(expected, actual);
 
         }
 
@@ -145,8 +144,6 @@ public class TestWire {
 
         wire.write(() -> "hello").text("world");
         System.out.println(wire.bytes());
-
-
     }
 
     public static class Details implements Marshallable {
@@ -172,6 +169,28 @@ public class TestWire {
             } catch (ClassNotFoundException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            Details details = (Details) o;
+
+            if (channelID != details.channelID) return false;
+            if (!keyClass.equals(details.keyClass)) return false;
+            if (!valueClass.equals(details.valueClass)) return false;
+
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = keyClass.hashCode();
+            result = 31 * result + valueClass.hashCode();
+            result = 31 * result + (int) channelID;
+            return result;
         }
     }
 }

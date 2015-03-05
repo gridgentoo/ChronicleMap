@@ -18,9 +18,6 @@
 
 package net.openhft.chronicle.map;
 
-import net.openhft.chronicle.bytes.Bytes;
-import net.openhft.chronicle.bytes.EscapingStopCharTester;
-import net.openhft.chronicle.bytes.StopCharTesters;
 import net.openhft.chronicle.hash.function.SerializableFunction;
 import net.openhft.chronicle.wire.Marshallable;
 import net.openhft.chronicle.wire.Wire;
@@ -336,6 +333,9 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
             hub.outWire().write(() -> fieldName).text((CharSequence) value);
         } else if (value instanceof Marshallable) {
             hub.outWire().write(() -> fieldName).marshallable((Marshallable) value);
+            //    System.out.println("HERE="+Bytes.toDebugString( hub.outWire().bytes().flip()));
+            //  System.out.println("NOTHING");
+
         } else {
             throw new IllegalStateException("type=" + value.getClass() + " is unsupported, it must either be of type Marshallable or CharSequence");
         }
@@ -356,6 +356,8 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
             if (wireIn.read(() -> "RESULT_IS_NULL").bool())
                 return null;
+
+
             if (StringBuilder.class.isAssignableFrom(vClass)) {
                 wireIn.read(() -> "RESULT").text((StringBuilder) usingValue);
                 return usingValue;
@@ -371,20 +373,12 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
                     }
 
                 wireIn.read(() -> "RESULT").marshallable((Marshallable) usingValue);
-
                 return usingValue;
-            } else if (usingValue instanceof StringBuilder) {
 
-                // todo optomize
+            } else if (String.class.isAssignableFrom(vClass)) {
+                //noinspection unchecked
+                return (V) wireIn.read(() -> "RESULT").text();
 
-                StringBuilder sb = new StringBuilder();
-                Bytes b = Bytes.elasticByteBuffer();
-                wireIn.read(() -> "RESULT").bytes(b);
-                b.parseUTF(sb, EscapingStopCharTester.escaping(StopCharTesters.COMMA_STOP));
-                return (V) sb.toString();
-
-            } else if (CharSequence.class.isAssignableFrom(vClass)) {
-                return (V) new String(wireIn.read(() -> "RESULT").bytes());
             } else {
                 throw new IllegalStateException("unsupported type");
             }

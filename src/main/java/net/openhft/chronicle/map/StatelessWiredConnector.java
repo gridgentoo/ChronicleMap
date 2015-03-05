@@ -26,6 +26,7 @@ import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.bytes.BytesMarshallable;
 import net.openhft.chronicle.core.OS;
 import net.openhft.chronicle.wire.TextWire;
+import net.openhft.chronicle.wire.ValueIn;
 import net.openhft.chronicle.wire.Wire;
 import net.openhft.lang.io.ByteBufferBytes;
 import net.openhft.lang.io.DirectStore;
@@ -386,15 +387,47 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         // copy the bytes to the reader
         for (final String field : args) {
-            wire.read(() -> field).bytes(source -> {
 
-                System.out.println("field=" + field + ", source='" + new String(source) + "'");
-                bytes.writeStopBit(source.length);
-                bytes.write(source);
-            });
+            ValueIn read = wire.read(() -> field);
+            long fieldLength = read.readLength();
+
+            long endPos = wire.bytes().position() + fieldLength;
+            long limit = wire.bytes().limit();
+
+            try {
+
+                final Bytes source = wire.bytes();
+                source.limit(endPos);
+
+                // write the size
+                bytes.writeStopBit(source.remaining());
+
+
+                System.out.println(Bytes.toDebugString(source));
+
+                while (source.remaining() > 0) {
+                    if (source.remaining() >= 8)
+                        bytes.writeLong(source.readLong());
+                    else
+                        bytes.writeByte(source.readByte());
+                }
+
+            } finally {
+                wire.bytes().position(endPos);
+                wire.bytes().limit(limit);
+            }
+
         }
 
         return bytes.flip();
+    }
+
+
+    private char peekCode(Bytes<?> bytes) {
+        if (bytes.remaining() < 1)
+            return (char) -1;
+        long pos = bytes.position();
+        return (char) bytes.readUnsignedByte(pos);
     }
 
     @Nullable
@@ -489,7 +522,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 // the size of the result in bytes
                 long len = outChronBytes.readStopBit();
 
-                outWire.write(() -> "RESULT").bytes(outChronBytes);
+                outWire.write(() -> "RESULT");
+                outWire.bytes().write(outChronBytes);
             } else {
                 outWire.write(() -> "EXCEPTION").bytes(outChronBytes);
             }
@@ -560,8 +594,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
                 // the size of the result in bytes
                 long len = outChronBytes.readStopBit();
+                outWire.write(() -> "RESULT");
 
-                outWire.write(() -> "RESULT").bytes(outChronBytes);
+                System.out.println("get() ->" + Bytes.toDebugString(outChronBytes));
+                outWire.bytes().write(outChronBytes);
             } else {
                 outWire.write(() -> "EXCEPTION").bytes(outChronBytes);
             }
