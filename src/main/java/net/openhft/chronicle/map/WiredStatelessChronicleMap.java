@@ -18,6 +18,7 @@
 
 package net.openhft.chronicle.map;
 
+import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.hash.function.SerializableFunction;
 import net.openhft.chronicle.wire.Marshallable;
 import net.openhft.chronicle.wire.Wire;
@@ -317,7 +318,9 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         // receive
         hub.inBytesLock().lock();
         try {
-            return hub.proxyReply(timeoutTime, transactionId).read(() -> "RESULT").int64();
+            Wire wire = hub.proxyReply(timeoutTime, transactionId);
+            Bytes.toDebugString(wire.bytes(), 0, wire.bytes().limit());
+            return wire.read(() -> "RESULT").int64();
         } finally {
             hub.inBytesLock().unlock();
         }
@@ -333,9 +336,6 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
             hub.outWire().write(() -> fieldName).text((CharSequence) value);
         } else if (value instanceof Marshallable) {
             hub.outWire().write(() -> fieldName).marshallable((Marshallable) value);
-            //    System.out.println("HERE="+Bytes.toDebugString( hub.outWire().bytes().flip()));
-            //  System.out.println("NOTHING");
-
         } else {
             throw new IllegalStateException("type=" + value.getClass() + " is unsupported, it must either be of type Marshallable or CharSequence");
         }
@@ -351,12 +351,8 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
             final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
 
-            if (wireIn.read(() -> "IS_EXCEPTION").bool())
-                throw new RuntimeException(wireIn.read(() -> "EXCEPTION").text());
-
             if (wireIn.read(() -> "RESULT_IS_NULL").bool())
                 return null;
-
 
             if (StringBuilder.class.isAssignableFrom(vClass)) {
                 wireIn.read(() -> "RESULT").text((StringBuilder) usingValue);
@@ -432,7 +428,6 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
             writeField("METHOD_NAME", methodName);
             writeField("ARG_1", key);
             writeField("ARG_2", value);
-
 
             hub.writeSocket();
         } finally {

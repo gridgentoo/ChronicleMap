@@ -23,7 +23,6 @@ import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.map.ChronicleMap;
 import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
-import org.jetbrains.annotations.NotNull;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -32,6 +31,8 @@ import java.net.InetSocketAddress;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static net.openhft.chronicle.map.ChronicleMapBuilder.of;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Created by Rob Austin
@@ -39,23 +40,10 @@ import static org.junit.Assert.assertEquals;
 public class TestWire {
 
 
+    public static int SERVER_PORT = 8086;
     private ChronicleMap<byte[], byte[]> map1a;
-
-    private static <K, V> ChronicleMap<K, V> localClient(int port,
-                                                         byte identifier,
-                                                         @NotNull Class keyClass,
-                                                         @NotNull Class valueClass,
-                                                         short channelID) throws IOException {
-
-        final WiredChronicleMapStatelessClientBuilder<K, V> builder = new WiredChronicleMapStatelessClientBuilder<K, V>(new InetSocketAddress("localhost", port), keyClass, valueClass, channelID);
-        builder.identifier(identifier);
-        return builder.create();
-    }
-
     private ChronicleMap<byte[], byte[]> map2a;
     private ChronicleMap<byte[], byte[]> map3a;
-
-
     private ReplicationHub hubA;
 
 
@@ -64,7 +52,7 @@ public class TestWire {
 
         {
             final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
-                    .of(8086)
+                    .of(++SERVER_PORT)
                     .heartBeatInterval(1, SECONDS);
 
             hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
@@ -77,7 +65,13 @@ public class TestWire {
             short channelID = (short) 1;
             byte identifier = (byte) 2;
 
-            final WiredChronicleMapStatelessClientBuilder<String, String> builder = new WiredChronicleMapStatelessClientBuilder<String, String>(new InetSocketAddress("localhost", 8086), String.class, String.class, channelID);
+            final WiredChronicleMapStatelessClientBuilder<String, String> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            String.class,
+                            channelID);
+
             builder.identifier(identifier);
             builder.putReturnsNull(true);
 
@@ -92,13 +86,53 @@ public class TestWire {
 
     }
 
+    @Test
+    public void testLongSize() throws IOException, InterruptedException {
+
+        {
+            final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                    .of(++SERVER_PORT)
+                    .heartBeatInterval(1, SECONDS);
+
+            hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                    .createWithId((byte) 1);
+
+            // this is how you add maps after the custer is created
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+            short channelID = (short) 1;
+            byte identifier = (byte) 2;
+
+            final WiredChronicleMapStatelessClientBuilder<String, String> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            String.class,
+                            channelID);
+
+            builder.identifier(identifier);
+            builder.putReturnsNull(true);
+
+            try (ChronicleMap<String, String> statelessMap = builder.create()) {
+                assertTrue(statelessMap.isEmpty());
+                statelessMap.put("Hello", "World");
+                assertEquals(1, statelessMap.longSize());
+                assertFalse(statelessMap.isEmpty());
+            }
+
+
+        }
+
+    }
+
 
     @Test
     public void testPutMarshallableWithChannels() throws IOException, InterruptedException {
 
         {
             final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
-                    .of(8086)
+                    .of(++SERVER_PORT)
                     .heartBeatInterval(1, SECONDS);
 
             hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
@@ -118,7 +152,13 @@ public class TestWire {
 
             byte identifier = (byte) 2;
 
-            final WiredChronicleMapStatelessClientBuilder<String, Details> builder = new WiredChronicleMapStatelessClientBuilder<String, Details>(new InetSocketAddress("localhost", 8086), String.class, Details.class, (short) (byte) 1);
+            final WiredChronicleMapStatelessClientBuilder<String, Details> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            Details.class,
+                            (short) 1);
+
             builder.identifier(identifier);
             builder.putReturnsNull(true);
             final ChronicleMap<String, Details> statelessMap = builder.create();
@@ -136,6 +176,43 @@ public class TestWire {
         }
 
     }
+
+
+    @Test
+    public void testGetNullValue() throws IOException, InterruptedException {
+
+        {
+            final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                    .of(++SERVER_PORT)
+                    .heartBeatInterval(1, SECONDS);
+
+            hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                    .createWithId((byte) 1);
+
+            // this is how you add maps after the custer is created
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+
+            byte identifier = (byte) 2;
+
+            final WiredChronicleMapStatelessClientBuilder<String, String> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            String.class,
+                            (short) 1);
+
+            builder.identifier(identifier);
+            final ChronicleMap<String, String> statelessMap = builder.create();
+
+            final String actual = statelessMap.get("FirstMap");
+            Assert.assertEquals(null, actual);
+
+        }
+
+    }
+
 
     @Test
     public void testName() throws Exception {

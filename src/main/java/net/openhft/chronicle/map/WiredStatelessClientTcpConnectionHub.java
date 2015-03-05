@@ -383,9 +383,17 @@ public class WiredStatelessClientTcpConnectionHub {
     protected Wire proxyReply(long timeoutTime, final long transactionId) {
 
         assert inBytesLock().isHeldByCurrentThread();
-        //  assert !outBytesLock.isHeldByCurrentThread();
+
         try {
-            return proxyReplyThrowable(timeoutTime, transactionId);
+
+            final Wire wire = proxyReplyThrowable(timeoutTime, transactionId);
+
+            // handle an exception if the message contains the IS_EXCEPTION field
+            if (wire.read(() -> "IS_EXCEPTION").bool()) {
+                final String text = wire.read(() -> "EXCEPTION").text();
+                throw new RuntimeException(text);
+            }
+            return wire;
         } catch (IOException e) {
             close();
             throw new IORuntimeException(e);
