@@ -23,6 +23,7 @@ import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.map.ChronicleMap;
 import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
+import net.openhft.chronicle.map.WiredStatelessChronicleMap;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -80,11 +81,50 @@ public class TestWire {
                 assertFalse(statelessMap.isEmpty());
             }
 
+            map1a.close();
 
         }
 
 
     }
+
+
+    @Test
+    public void testVersion() throws IOException, InterruptedException {
+
+        final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                .of(++SERVER_PORT)
+                .heartBeatInterval(1, SECONDS);
+
+        hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                .createWithId((byte) 1);
+
+        // this is how you add maps after the custer is created
+        map1a = of(byte[].class, byte[].class)
+                .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+        short channelID = (short) 1;
+        byte identifier = (byte) 2;
+
+        final WiredChronicleMapStatelessClientBuilder<String, String> builder =
+                new WiredChronicleMapStatelessClientBuilder<>(
+                        new InetSocketAddress("localhost", SERVER_PORT),
+                        String.class,
+                        String.class,
+                        channelID);
+
+        builder.identifier(identifier);
+        builder.putReturnsNull(true);
+
+        try (ChronicleMap<String, String> statelessMap = builder.create()) {
+            String s = ((WiredStatelessChronicleMap) statelessMap).serverApplicationVersion();
+            Assert.assertNotNull(s);
+
+        }
+        map1a.close();
+
+    }
+
 
     @Test
     public void testLongSize() throws IOException, InterruptedException {
@@ -120,7 +160,7 @@ public class TestWire {
                 assertEquals(1, statelessMap.longSize());
                 assertFalse(statelessMap.isEmpty());
             }
-
+            map1a.close();
 
         }
 
@@ -173,6 +213,9 @@ public class TestWire {
 
             Assert.assertEquals(expected, actual);
 
+            map1a.close();
+            map2a.close();
+            map3a.close();
         }
 
     }
@@ -208,11 +251,10 @@ public class TestWire {
 
             final String actual = statelessMap.get("FirstMap");
             Assert.assertEquals(null, actual);
-
+            map1a.close();
         }
 
     }
-
 
 
     public static class Details implements Marshallable {

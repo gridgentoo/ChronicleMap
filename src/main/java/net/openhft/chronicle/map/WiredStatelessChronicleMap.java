@@ -21,7 +21,6 @@ package net.openhft.chronicle.map;
 import net.openhft.chronicle.hash.function.SerializableFunction;
 import net.openhft.chronicle.wire.Marshallable;
 import net.openhft.chronicle.wire.Wire;
-import net.openhft.lang.threadlocal.ThreadLocalCopies;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -42,7 +41,7 @@ import static net.openhft.chronicle.map.WiredStatelessChronicleMap.EventId.*;
 /**
  * @author Rob Austin.
  */
-class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable {
+public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable {
 
     private static final Logger LOG = LoggerFactory.getLogger(WiredStatelessChronicleMap.class);
     private final WiredStatelessClientTcpConnectionHub hub;
@@ -414,7 +413,7 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         }
     }
 
-    private String readString(long transactionId, long startTime) {
+/*    private String readString(long transactionId, long startTime) {
         assert !hub.outBytesLock().isHeldByCurrentThread();
 
         long timeoutTime = startTime + hub.timeoutMs;
@@ -427,7 +426,7 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         } finally {
             hub.inBytesLock().unlock();
         }
-    }
+    }*/
 
 
     @SuppressWarnings("SameParameterValue")
@@ -622,7 +621,6 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
     @Nullable
     private <R> R proxyReturnObject(Class<R> rClass, @NotNull final String methodName, Object key) {
         final long startTime = System.currentTimeMillis();
-        ThreadLocalCopies copies;
 
         long transactionId;
 

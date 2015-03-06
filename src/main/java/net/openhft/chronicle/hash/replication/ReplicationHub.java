@@ -119,6 +119,7 @@ public final class ReplicationHub extends AbstractReplication {
         return channel;
     }
 
+
     /**
      * Builder of {@link ReplicationHub}s.
      */

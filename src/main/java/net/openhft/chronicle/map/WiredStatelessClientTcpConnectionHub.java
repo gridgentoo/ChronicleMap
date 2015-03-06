@@ -92,7 +92,7 @@ public class WiredStatelessClientTcpConnectionHub {
         this.name = config.name();
         this.timeoutMs = config.timeoutMs();
         attemptConnect(remoteAddress);
-//        checkVersion(config.channelID());
+        checkVersion(config.channelID());
     }
 
     private synchronized void attemptConnect(final InetSocketAddress remoteAddress) {
@@ -264,6 +264,7 @@ public class WiredStatelessClientTcpConnectionHub {
 
     /**
      * sends data to the server via TCP/IP
+     *
      * @param wire the {@code wire} containing the outbound data
      */
     void writeSocket(@NotNull final Wire wire) {
@@ -375,7 +376,7 @@ public class WiredStatelessClientTcpConnectionHub {
                 intWire.bytes().skip(4);
                 intWire.bytes().limit(messageSize);
 
-                long  transactionId0 = intWire.read(() -> "TRANSACTION_ID").int64();
+                long transactionId0 = intWire.read(() -> "TRANSACTION_ID").int64();
 
 
                 // check the transaction id is reasonable
@@ -555,24 +556,6 @@ public class WiredStatelessClientTcpConnectionHub {
     }
 
 
-    private long proxySend(@NotNull final String methodName, final long startTime, short channelID) {
-
-        assert outBytesLock().isHeldByCurrentThread();
-        assert !inBytesLock().isHeldByCurrentThread();
-
-        // send
-        outBytesLock().lock();
-        try {
-            long transactionId = writeHeader(startTime, channelID, outWire());
-            outWire.write(() -> "METHOD_NAME").text(methodName);
-            writeSocket(outWire);
-            return transactionId;
-        } finally {
-            outBytesLock().unlock();
-        }
-    }
-
-
     private long proxySend(@NotNull final String methodName,
                            final long startTime,
                            short channelID,
@@ -617,7 +600,7 @@ public class WiredStatelessClientTcpConnectionHub {
         // receive
         inBytesLock().lock();
         try {
-            return proxyReply(timeoutTime, transactionId).read(() -> messageId).text();
+            return proxyReply(timeoutTime, transactionId).read(() -> "RESULT").text();
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -649,6 +632,7 @@ public class WiredStatelessClientTcpConnectionHub {
 
     /**
      * mark the location of the outWire size
+     *
      * @param outWire
      */
     void markSize(Wire outWire) {
