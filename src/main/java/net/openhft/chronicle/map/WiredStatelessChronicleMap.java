@@ -18,7 +18,6 @@
 
 package net.openhft.chronicle.map;
 
-import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.hash.function.SerializableFunction;
 import net.openhft.chronicle.wire.Marshallable;
 import net.openhft.chronicle.wire.Wire;
@@ -265,7 +264,7 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
     public V put(K key, V value) {
         if (key == null || value == null)
             throw new NullPointerException();
-        return proxyReturnObject(putReturnsNull ? "PUT_WITHOUT_ACC" : "PUT", key, value, vClass);
+        return proxyReturnObject(putReturnsNull ? PUT_WITHOUT_ACC.toString() : PUT.toString(), key, value, vClass);
     }
 
     @Nullable
@@ -298,11 +297,9 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
      */
     void entrySet(@NotNull MapEntryCallback<K, V> callback) {
         throw new UnsupportedOperationException();
-
     }
 
     public void putAll(@NotNull Map<? extends K, ? extends V> map) {
-
         throw new UnsupportedOperationException();
     }
 
@@ -318,9 +315,7 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         // receive
         hub.inBytesLock().lock();
         try {
-            Wire wire = hub.proxyReply(timeoutTime, transactionId);
-            Bytes.toDebugString(wire.bytes(), 0, wire.bytes().limit());
-            return wire.read(() -> "RESULT").int64();
+            return hub.proxyReply(timeoutTime, transactionId).read(() -> "RESULT").int64();
         } finally {
             hub.inBytesLock().unlock();
         }
@@ -328,14 +323,18 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
 
     private void writeField(String fieldName, Object value) {
+        writeField(fieldName, value, hub.outWire());
+    }
+
+    private void writeField(String fieldName, Object value, Wire wire) {
 
         assert hub.outBytesLock().isHeldByCurrentThread();
         assert !hub.inBytesLock().isHeldByCurrentThread();
 
         if (value instanceof CharSequence) {
-            hub.outWire().write(() -> fieldName).text((CharSequence) value);
+            wire.write(() -> fieldName).text((CharSequence) value);
         } else if (value instanceof Marshallable) {
-            hub.outWire().write(() -> fieldName).marshallable((Marshallable) value);
+            wire.write(() -> fieldName).marshallable((Marshallable) value);
         } else {
             throw new IllegalStateException("type=" + value.getClass() + " is unsupported, it must either be of type Marshallable or CharSequence");
         }
@@ -415,6 +414,21 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         }
     }
 
+    private String readString(long transactionId, long startTime) {
+        assert !hub.outBytesLock().isHeldByCurrentThread();
+
+        long timeoutTime = startTime + hub.timeoutMs;
+
+        // receive
+        hub.inBytesLock().lock();
+        try {
+            final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
+            return wireIn.read(() -> "RESULT").text();
+        } finally {
+            hub.inBytesLock().unlock();
+        }
+    }
+
 
     @SuppressWarnings("SameParameterValue")
     private boolean proxyReturnBoolean(@NotNull final String methodName, K key, V value) {
@@ -424,12 +438,12 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
             writeField("ARG_1", key);
             writeField("ARG_2", value);
 
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
@@ -446,11 +460,11 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         long transactionId;
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
             writeField("ARG_1", value1);
             writeField("ARG_2", value2);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
@@ -466,10 +480,10 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
         long transactionId;
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
             writeField("ARG_1", value);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
@@ -485,10 +499,10 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
             writeField("ARG_1", key);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
@@ -504,9 +518,9 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
@@ -522,9 +536,9 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
@@ -541,9 +555,9 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
@@ -560,15 +574,18 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }
 
         return readInt(transactionId, startTime);
     }
+
+
+
 
     @Nullable
     private <R> R proxyReturnObject(@NotNull final String methodName, K key, V value, Class<V> resultType) {
@@ -581,11 +598,11 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
             assert hub.outBytesLock().isHeldByCurrentThread();
             assert !hub.inBytesLock().isHeldByCurrentThread();
 
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
             writeField("ARG_1", key);
             writeField("ARG_2", value);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
 
         } finally {
             hub.outBytesLock().unlock();
@@ -611,10 +628,10 @@ class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Cloneable 
 
         hub.outBytesLock().lock();
         try {
-            transactionId = hub.writeHeader(startTime, channelID);
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
             writeField("METHOD_NAME", methodName);
             writeField("ARG_1", key);
-            hub.writeSocket();
+            hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
         }

@@ -24,6 +24,7 @@ package net.openhft.chronicle.map;
 
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.bytes.BytesMarshallable;
+import net.openhft.chronicle.hash.impl.util.BuildVersion;
 import net.openhft.chronicle.wire.TextWire;
 import net.openhft.chronicle.wire.ValueIn;
 import net.openhft.chronicle.wire.Wire;
@@ -96,7 +97,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     public void onWrite(@NotNull SocketChannel socketChannel, @NotNull SelectionKey key) throws IOException {
 
         ((ByteBuffer) outWire.bytes().underlyingObject()).limit((int) outWire.bytes().position());
-        System.out.println(Bytes.toHex(outWire.bytes().flip()));
+
         socketChannel.write((ByteBuffer) outWire.bytes().underlyingObject());
 
         if (((ByteBuffer) outWire.bytes().underlyingObject()).remaining() == 0) {
@@ -233,7 +234,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             // write the transaction id
             outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
 
-
             if ("REMOTE_IDENTIFIER".contentEquals(methodName))
                 this.remoteIdentifier = inWire.read(() -> "RESULT").int8();
 
@@ -331,14 +331,13 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     @NotNull
     private CharSequence persistedDataVersion() {
-        throw new UnsupportedOperationException("todo");
+        return bytesMap(channelId).persistedDataVersion();
     }
 
     @NotNull
     private CharSequence applicationVersion() {
-        throw new UnsupportedOperationException("todo");
+        return BuildVersion.version();
     }
-
 
     /**
      * creates a lang buffer that holds just the payload of the args
@@ -628,7 +627,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
                 // write the result
                 wire.write(() -> "RESULT");
-                System.out.println("out->" + Bytes.toDebugString(outChronBytes));
                 wire.bytes().write(outChronBytes);
             }
         }
@@ -644,7 +642,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
          */
         public void markStartOfMessage() {
             startChunk = outLangBytes.position();
-            System.out.println("Start == " + startChunk);
         }
 
     }

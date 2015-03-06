@@ -151,4 +151,8 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
     public void identifier(byte identifier) {
         this.localIdentifier = identifier;
     }
+
+    public short channelID() {
+        return channelID;
+    }
 }

@@ -23,7 +23,6 @@ import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.hash.RemoteCallTimeoutException;
 import net.openhft.chronicle.hash.impl.util.BuildVersion;
 import net.openhft.chronicle.hash.impl.util.CloseablesManager;
-import net.openhft.chronicle.wire.Marshallable;
 import net.openhft.chronicle.wire.TextWire;
 import net.openhft.chronicle.wire.Wire;
 import org.jetbrains.annotations.NotNull;
@@ -38,7 +37,9 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
+import static java.nio.ByteBuffer.wrap;
 import static net.openhft.chronicle.map.AbstractChannelReplicator.SIZE_OF_SIZE;
+import static net.openhft.chronicle.map.TcpReplicator.WIRED_CONNECTION;
 import static net.openhft.chronicle.map.WiredStatelessChronicleMap.EventId.APPLICATION_VERSION;
 
 /**
@@ -47,7 +48,7 @@ import static net.openhft.chronicle.map.WiredStatelessChronicleMap.EventId.APPLI
 public class WiredStatelessClientTcpConnectionHub {
 
     private static final Logger LOG = LoggerFactory.getLogger(StatelessChronicleMap.class);
-    private static final byte WIRE_STATELESS_CLIENT_IDENTIFIER = (byte) -126;
+    private static final ByteBuffer WIRED_FLAG = wrap(new byte[]{WIRED_CONNECTION});
 
     protected final String name;
     protected final InetSocketAddress remoteAddress;
@@ -55,17 +56,19 @@ public class WiredStatelessClientTcpConnectionHub {
     protected final int tcpBufferSize;
     private final ReentrantLock inBytesLock = new ReentrantLock(true);
     private final ReentrantLock outBytesLock = new ReentrantLock();
-    private final byte[] connectionByte = new byte[1];
-    private final ByteBuffer connectionOutBuffer = ByteBuffer.wrap(connectionByte);
+
 
     @NotNull
     private final AtomicLong transactionID = new AtomicLong(0);
+    private final WiredChronicleMapStatelessClientBuilder config;
     @Nullable
     protected CloseablesManager closeables;
-    //private net.openhft.chronicle.bytes.Bytes outBytes;
+
     private final Wire outWire = new TextWire(Bytes.elasticByteBuffer());
+
     long largestChunkSoFar = 0;
     private final Wire intWire = new TextWire(Bytes.elasticByteBuffer());
+
     //  used by the enterprise version
     protected int localIdentifier;
 
@@ -78,22 +81,18 @@ public class WiredStatelessClientTcpConnectionHub {
     private long limitOfLast = 0;
 
     // set up in the header
-    private long sizeMark;
     private long startTime;
+
 
     public WiredStatelessClientTcpConnectionHub(WiredChronicleMapStatelessClientBuilder config, byte localIdentifier) {
         this.localIdentifier = localIdentifier;
         this.remoteAddress = config.remoteAddress();
         this.tcpBufferSize = config.tcpBufferSize();
+        this.config = config;
         this.name = config.name();
-
-        //  outBytes = Bytes.wrap(outBuffer.slice()).bytes();
         this.timeoutMs = config.timeoutMs();
-
         attemptConnect(remoteAddress);
-        // todo
-//        checkVersion();
-
+//        checkVersion(config.channelID());
     }
 
     private synchronized void attemptConnect(final InetSocketAddress remoteAddress) {
@@ -124,7 +123,6 @@ public class WiredStatelessClientTcpConnectionHub {
     }
 
     protected void checkVersion(short channelID) {
-
 
         final String serverVersion = serverApplicationVersion(channelID);
         final String clientVersion = clientVersion();
@@ -185,49 +183,10 @@ public class WiredStatelessClientTcpConnectionHub {
         }
         clientChannel = result;
 
-       /* ByteBuffer byteBuffer = ByteBuffer.allocateDirect(128);
-        Bytes<ByteBuffer> bufferBytes = Bytes.wrap(byteBuffer);
-        TextWire wire = new TextWire(bufferBytes);
-        wire.bytes().skip(4);
-
-
-        // write out identifier as part of the handshaking
-        wire.write(() -> "IDENTIFIER").int8(localIdentifier);
-
-        // write the size
-        wire.bytes().writeInt(0, (int) wire.bytes().position());
-
-        // update the write byte buffer
-        byteBuffer.limit((int) wire.bytes().position());
-
-
-        try {
-            while (byteBuffer.remaining() > 0) {
-
-                int i = result.write(byteBuffer);
-                if (i == -1) {
-                    result.close();
-                    clientChannel = null;
-                    return;
-                }
-
-            }
-        } catch (Exception e) {
-            try {
-                result.close();
-                clientChannel = null;
-            } catch (IOException e1) {
-                //
-            }
-
-        }*/
+        checkVersion(config.channelID());
 
     }
 
-    private ByteBuffer outWireByteBuffer() {
-        assert outBytesLock().isHeldByCurrentThread();
-        return (ByteBuffer) outWire.bytes().underlyingObject();
-    }
 
     /**
      * closes the existing connections and establishes a new closeables
@@ -250,46 +209,16 @@ public class WiredStatelessClientTcpConnectionHub {
      */
     protected synchronized void doHandShaking(@NotNull final SocketChannel clientChannel) throws IOException {
 
-        connectionByte[0] = TcpReplicator.WIRED_CONNECTION;
-        this.connectionOutBuffer.clear();
-
         long timeoutTime = System.currentTimeMillis() + timeoutMs;
 
         // write a single byte
-        while (connectionOutBuffer.hasRemaining()) {
-            clientChannel.write(connectionOutBuffer);
+        while (WIRED_FLAG.hasRemaining()) {
+            WIRED_FLAG.clear();
+            clientChannel.write(WIRED_FLAG);
             checkTimeout(timeoutTime);
         }
 
-        this.connectionOutBuffer.clear();
 
-        if (!clientChannel.finishConnect() || !clientChannel.socket().isBound())
-            return;
-
-      /*  // read a single byte back
-        while (this.connectionOutBuffer.position() <= 4) {
-            int read = clientChannel.read(this.connectionOutBuffer);// the remote identifier
-            if (read == -1)
-                throw new IOException("server connection closed");
-            checkTimeout(timeoutTime);
-        }
-
-        this.connectionOutBuffer.clear();
-
-        int len = this.connectionOutBuffer.getInt();
-
-        // block till the message is read
-        while (this.connectionOutBuffer.position() <= len ) {
-            int read = clientChannel.read(this.connectionOutBuffer);// the remote identifier
-            if (read == -1)
-                throw new IOException("server connection closed");
-            checkTimeout(timeoutTime);
-        }
-        */
-
-      /*  if (LOG.isDebugEnabled())
-            LOG.debug("Attached to a map with a remote identifier=" + remoteIdentifier + " ,name=" + name);
-*/
     }
 
     public synchronized void close() {
@@ -321,7 +250,8 @@ public class WiredStatelessClientTcpConnectionHub {
 
     @NotNull
     public String serverApplicationVersion(short channelID) {
-        String result = proxyReturnString(APPLICATION_VERSION.toString(), channelID);
+        TextWire wire = new TextWire(Bytes.elasticByteBuffer());
+        String result = proxyReturnString(APPLICATION_VERSION.toString(), channelID, wire);
         return (result == null) ? "" : result;
     }
 
@@ -334,8 +264,9 @@ public class WiredStatelessClientTcpConnectionHub {
 
     /**
      * sends data to the server via TCP/IP
+     * @param wire the {@code wire} containing the outbound data
      */
-    void writeSocket() {
+    void writeSocket(@NotNull final Wire wire) {
 
         assert outBytesLock().isHeldByCurrentThread();
         assert !inBytesLock().isHeldByCurrentThread();
@@ -345,16 +276,13 @@ public class WiredStatelessClientTcpConnectionHub {
         try {
 
             for (; ; ) {
-                if (clientChannel == null) {
+                if (clientChannel == null)
                     lazyConnect(timeoutMs, remoteAddress);
-                }
                 try {
-
-                    writeLength(outWire);
+                    writeLength(wire);
 
                     // send out all the bytes
-                    writeSocket(outWire, timeoutTime);
-
+                    writeSocket(wire, timeoutTime);
                     break;
 
                 } catch (@NotNull java.nio.channels.ClosedChannelException | ClosedConnectionException e) {
@@ -377,7 +305,13 @@ public class WiredStatelessClientTcpConnectionHub {
         if (position > Integer.MAX_VALUE || position < Integer.MIN_VALUE)
             throw new IllegalStateException("message too large");
 
-        outWire.bytes().writeInt(sizeMark, (int) position);
+        long pos = outWire.bytes().position();
+        try {
+            outWire.bytes().reset();
+            outWire.bytes().writeInt((int) position);
+        } finally {
+            outWire.bytes().position(pos);
+        }
     }
 
     protected Wire proxyReply(long timeoutTime, final long transactionId) {
@@ -387,6 +321,8 @@ public class WiredStatelessClientTcpConnectionHub {
         try {
 
             final Wire wire = proxyReplyThrowable(timeoutTime, transactionId);
+
+            Bytes.toDebugString(wire.bytes());
 
             // handle an exception if the message contains the IS_EXCEPTION field
             if (wire.read(() -> "IS_EXCEPTION").bool()) {
@@ -559,7 +495,6 @@ public class WiredStatelessClientTcpConnectionHub {
         assert outBytesLock().isHeldByCurrentThread();
         assert !inBytesLock().isHeldByCurrentThread();
 
-
         long outBytesPosition = outWire.bytes().position();
 
 
@@ -570,7 +505,7 @@ public class WiredStatelessClientTcpConnectionHub {
             return;
         }
 
-        ByteBuffer outBuffer = outWireByteBuffer();
+        ByteBuffer outBuffer = (ByteBuffer) outWire.bytes().underlyingObject();
         outBuffer.limit((int) outWire.bytes().position());
         outBuffer.position(0);
 
@@ -628,9 +563,30 @@ public class WiredStatelessClientTcpConnectionHub {
         // send
         outBytesLock().lock();
         try {
-            long transactionId = writeHeader(startTime, channelID);
+            long transactionId = writeHeader(startTime, channelID, outWire());
             outWire.write(() -> "METHOD_NAME").text(methodName);
-            writeSocket();
+            writeSocket(outWire);
+            return transactionId;
+        } finally {
+            outBytesLock().unlock();
+        }
+    }
+
+
+    private long proxySend(@NotNull final String methodName,
+                           final long startTime,
+                           short channelID,
+                           @NotNull final Wire wire) {
+
+        assert outBytesLock().isHeldByCurrentThread();
+        assert !inBytesLock().isHeldByCurrentThread();
+
+        // send
+        outBytesLock().lock();
+        try {
+            long transactionId = writeHeader(startTime, channelID, wire);
+            wire.write(() -> "METHOD_NAME").text(methodName);
+            writeSocket(wire);
             return transactionId;
         } finally {
             outBytesLock().unlock();
@@ -639,43 +595,19 @@ public class WiredStatelessClientTcpConnectionHub {
 
     @SuppressWarnings("SameParameterValue")
     @Nullable
-    <O extends Marshallable> O fetchObject(final Class<O> tClass,
-                                           @NotNull final String methodName, short channelID) {
-        final long startTime = System.currentTimeMillis();
-        long transactionId;
-
-        outBytesLock().lock();
-        try {
-            transactionId = proxySend(methodName, startTime, channelID);
-        } finally {
-            outBytesLock().unlock();
-        }
-
-        long timeoutTime = startTime + this.timeoutMs;
-
-        // receive
-        inBytesLock().lock();
-        try {
-            O result = tClass.newInstance();
-            proxyReply(timeoutTime, transactionId).read(() -> "RESULT")
-                    .marshallable(result);
-            return result;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            inBytesLock().unlock();
-        }
+    String proxyReturnString(@NotNull final String messageId, short channelID) {
+        return proxyReturnString(messageId, channelID, outWire);
     }
 
     @SuppressWarnings("SameParameterValue")
     @Nullable
-    String proxyReturnString(@NotNull final String messageId, short channelID) {
+    String proxyReturnString(@NotNull final String messageId, short channelID, Wire outWire) {
         final long startTime = System.currentTimeMillis();
         long transactionId;
 
         outBytesLock().lock();
         try {
-            transactionId = proxySend(messageId, startTime, channelID);
+            transactionId = proxySend(messageId, startTime, channelID, outWire);
         } finally {
             outBytesLock().unlock();
         }
@@ -699,17 +631,17 @@ public class WiredStatelessClientTcpConnectionHub {
         return outWire;
     }
 
-    long writeHeader(long startTime, short channelID) {
+    long writeHeader(long startTime, short channelID, Wire wire) {
 
         assert outBytesLock().isHeldByCurrentThread();
-        markSize();
+        markSize(wire);
         startTime(startTime);
 
         long transactionId = nextUniqueTransaction(startTime);
 
-        outWire().write(() -> "TRANSACTION_ID").int64(transactionId);
-        outWire().write(() -> "TIME_STAMP").int64(startTime);
-        outWire().write(() -> "CHANNEL_ID").int16(channelID);
+        wire.write(() -> "TRANSACTION_ID").int64(transactionId);
+        wire.write(() -> "TIME_STAMP").int64(startTime);
+        wire.write(() -> "CHANNEL_ID").int16(channelID);
 
         return transactionId;
     }
@@ -717,14 +649,14 @@ public class WiredStatelessClientTcpConnectionHub {
 
     /**
      * mark the location of the outWire size
+     * @param outWire
      */
-    void markSize() {
+    void markSize(Wire outWire) {
 
         assert outBytesLock().isHeldByCurrentThread();
 
         // this is where the size will go
-        sizeMark = outWire.bytes().position();
-
+        outWire.bytes().mark();
 
         // skip the 4 bytes for the size
         outWire.bytes().skip(4);

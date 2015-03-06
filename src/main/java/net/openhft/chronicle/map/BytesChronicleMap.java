@@ -203,4 +203,8 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
         }
 
     }
+
+    public String persistedDataVersion() {
+        return delegate.persistedDataVersion();
+    }
 }

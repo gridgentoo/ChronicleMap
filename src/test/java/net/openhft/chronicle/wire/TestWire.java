@@ -30,9 +30,7 @@ import java.net.InetSocketAddress;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static net.openhft.chronicle.map.ChronicleMapBuilder.of;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Created by Rob Austin
@@ -78,6 +76,8 @@ public class TestWire {
             try (ChronicleMap<String, String> statelessMap = builder.create()) {
                 statelessMap.put("Hello", "World");
                 assertEquals("World", statelessMap.get("Hello"));
+                assertTrue("World", statelessMap.containsKey("Hello"));
+                assertFalse(statelessMap.isEmpty());
             }
 
 
@@ -214,14 +214,6 @@ public class TestWire {
     }
 
 
-    @Test
-    public void testName() throws Exception {
-
-        TextWire wire = new TextWire(net.openhft.chronicle.bytes.Bytes.elasticByteBuffer());
-
-        wire.write(() -> "hello").text("world");
-        System.out.println(wire.bytes());
-    }
 
     public static class Details implements Marshallable {
 
