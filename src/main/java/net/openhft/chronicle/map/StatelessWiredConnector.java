@@ -314,6 +314,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             else if ("PUT_ALL".contentEquals(methodName))
                 putAll();
+
+            else if ("KEY_SET".contentEquals(methodName))
+                putAll();
+
             else
                 throw new IllegalStateException("unsupported event=" + methodName);
 
