@@ -113,7 +113,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         this.key = key;
 
         final int len = readSocket(socketChannel);
-        System.out.println("len-read=" + len);
 
         if (len == -1 || len == 0)
             return len;

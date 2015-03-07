@@ -2266,7 +2266,7 @@ class StatelessServerConnector<K, V> {
         if (LOG.isDebugEnabled()) {
             out.position(locationOfSize);
             out.limit(pos);
-            LOG.info("Sending to the stateless client, bytes=" + AbstractBytes.toHex(out) + "," +
+            LOG.debug("Sending to the stateless client, bytes=" + AbstractBytes.toHex(out) + "," +
                     "len=" + out.remaining());
             out.limit(limit);
             out.position(pos);

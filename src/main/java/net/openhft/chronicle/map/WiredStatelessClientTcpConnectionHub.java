@@ -475,7 +475,7 @@ public class WiredStatelessClientTcpConnectionHub {
         while (buffer.position() < requiredNumberOfBytes) {
 
             int len = clientChannel.read(inWireByteBuffer());
-            System.out.println("len=" + len);
+
             if (len == -1)
                 throw new IORuntimeException("Disconnection to server");
 
@@ -520,7 +520,7 @@ public class WiredStatelessClientTcpConnectionHub {
         while (outBuffer.remaining() > 0) {
 
             int len = clientChannel.write(outBuffer);
-            System.out.println("write-len" + len);
+
             if (len == -1)
                 throw new IORuntimeException("Disconnection to server");
 
