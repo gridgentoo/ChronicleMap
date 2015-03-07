@@ -78,9 +78,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     @NotNull
     private final List<Replica> channelList;
 
-
+    private Runnable runnable = null;
     private byte remoteIdentifier;
     private byte localIdentifer;
+
 
     public StatelessWiredConnector(@Nullable List<Replica> channelList, byte localIdentifier) {
 
@@ -205,7 +206,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     @SuppressWarnings("UnusedReturnValue")
     @Nullable
-    Work onEvent() {
+    void onEvent() {
 
         // it is assumed by this point that the buffer has all the bytes in it for this message
         long transactionId = inWire.read(() -> "TRANSACTION_ID").int64();
@@ -213,17 +214,24 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         channelId = inWire.read(() -> "CHANNEL_ID").int16();
         inWire.read(() -> "METHOD_NAME").text(methodName);
 
-        if ("PUT_WITHOUT_ACC".contentEquals(methodName))
-
-            return writeVoid(bytesMap -> {
+        if ("PUT_WITHOUT_ACC".contentEquals(methodName)) {
+            writeVoid(bytesMap -> {
                 final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                 bytesMap.put(reader, reader, timestamp, identifier());
             });
+            return;
+        }
 
 
         // for the length
         long markStart = outWire.bytes().position();
         outWire.bytes().skip(4);
+
+        // process the messages for remaining chunks,
+        if (runnable != null) {
+            runnable.run();
+            return;
+        }
 
         try {
 
@@ -233,91 +241,115 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             if ("REMOTE_IDENTIFIER".contentEquals(methodName))
                 this.remoteIdentifier = inWire.read(() -> "RESULT").int8();
 
-            if ("LONG_SIZE".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").int64(b.longSize()));
+            if ("LONG_SIZE".contentEquals(methodName)) {
+                write(b -> outWire.write(() -> "RESULT").int64(b.longSize()));
+                return;
+            }
 
-            else if ("IS_EMPTY".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").bool(b.isEmpty()));
+
+            if ("IS_EMPTY".contentEquals(methodName))
+                write(b -> outWire.write(() -> "RESULT").bool(b.isEmpty()));
 
             else if ("CONTAINS_KEY".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").
+                write(b -> outWire.write(() -> "RESULT").
                         bool(b.containsKey(toReader(inWire, "ARG_1"))));
 
             else if ("CONTAINS_VALUE".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").
+                write(b -> outWire.write(() -> "RESULT").
                         bool(b.containsKey(toReader(inWire, "ARG_1"))));
 
             else if ("GET".contentEquals(methodName))
-                return writeValue(b -> b.get(toReader(inWire, "ARG_1")));
+                writeValue(b -> b.get(toReader(inWire, "ARG_1")));
 
-            if ("PUT".contentEquals(methodName))
-                return writeValue(bytesMap -> {
+            else if ("PUT".contentEquals(methodName))
+                writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.put(reader, reader, timestamp, identifier());
                 });
 
             else if ("REMOVE".contentEquals(methodName))
-                return writeValue(b -> b.remove(toReader(inWire, "ARG_1")));
+                writeValue(b -> b.remove(toReader(inWire, "ARG_1")));
 
             else if ("CLEAR".contentEquals(methodName))
-                return writeVoid(BytesChronicleMap::clear);
+                writeVoid(BytesChronicleMap::clear);
 
             else if ("REPLACE".contentEquals(methodName))
-                return writeValue(bytesMap -> {
+                writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.replace(reader, reader);
                 });
 
             else if ("REPLACE_WITH_OLD_AND_NEW_VALUE".contentEquals(methodName))
-                return writeValue(bytesMap -> {
+                writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2", "ARG_3");
                     bytesMap.replace(reader, reader, reader);
                 });
 
             else if ("PUT_IF_ABSENT".contentEquals(methodName))
-                return writeValue(bytesMap -> {
+                writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.putIfAbsent(reader, reader, timestamp, identifier());
                 });
 
             else if ("REMOVE_WITH_VALUE".contentEquals(methodName))
-                return writeValue(bytesMap -> {
+                writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.remove(reader, reader, timestamp, identifier());
                 });
 
 
             else if ("TO_STRING".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").text(b.toString()));
+                write(b -> outWire.write(() -> "RESULT").text(b.toString()));
 
 
             else if ("APPLICATION_VERSION".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").text(applicationVersion()));
+                write(b -> outWire.write(() -> "RESULT").text(applicationVersion()));
 
             else if ("PERSISTED_DATA_VERSION".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").text(persistedDataVersion()));
+                write(b -> outWire.write(() -> "RESULT").text(persistedDataVersion()));
 
 
             else if ("HASH_CODE".contentEquals(methodName))
-                return write(b -> outWire.write(() -> "RESULT").int32(b.hashCode()));
+                write(b -> outWire.write(() -> "RESULT").int32(b.hashCode()));
 
+            else if ("PUT_ALL".contentEquals(methodName))
+                putAll();
+            else
+                throw new IllegalStateException("unsupported event=" + methodName);
 
-            // todo
-            //    if ("PUT_ALL".contentEquals(methodName))
             //  else if ("MAP_FOR_KEY".contentEquals(methodName)
             // else if ("PUT_MAPPED".contentEquals(methodName))
             //  else if ("VALUE_BUILDER".contentEquals(methodName))
 
 
-        } catch (Exception e) {
-            LOG.error("", e);
         } finally {
             int len = (int) (outWire.bytes().position() - markStart);
             outWire.bytes().writeInt(markStart, len);
         }
 
 
-        throw new IllegalStateException("unsupported event=" + methodName);
+    }
+
+    private void putAll() {
+
+        runnable = () -> {
+            if (!inWire.read(() -> "HAS_MORE_CHUNKS").bool())
+                // finished reading all the chunks
+                runnable = null;
+
+            BytesChronicleMap bytesMap = bytesMap(StatelessWiredConnector.this.channelId);
+
+            // todo handle when bytesMap is null
+
+            bytesMap.output = outMessageAdapter.outBuffer;
+            final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
+            try {
+                bytesMap.put(reader, reader, timestamp, identifier());
+            } catch (Exception e) {
+                // todo send back exceptions
+            }
+
+        };
     }
 
     private byte identifier() {
@@ -433,13 +465,13 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     @SuppressWarnings("SameReturnValue")
     @Nullable
-    private Work writeValue(@NotNull Consumer<BytesChronicleMap> process) {
+    private void writeValue(@NotNull Consumer<BytesChronicleMap> process) {
 
         final BytesChronicleMap bytesMap = bytesMap(channelId);
 
         if (bytesMap == null) {
             LOG.error("no map for channelId=" + channelId + " can be found.");
-            return null;
+            return;
         }
 
         inLanByteBuffer.clear();
@@ -457,24 +489,23 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             outWire.write(() -> "IS_EXCEPTION").bool(true);
             outWire.write(() -> "EXCEPTION").text(toString(e));
             LOG.error("", e);
-            return null;
+            return;
         }
 
         outMessageAdapter.accept(outWire);
         nofityDataWritten();
-        return null;
+
     }
 
 
     @SuppressWarnings("SameReturnValue")
-    @Nullable
-    private Work write(@NotNull Consumer<BytesChronicleMap> c) {
+    private void write(@NotNull Consumer<BytesChronicleMap> c) {
 
         final BytesChronicleMap bytesMap = bytesMap(channelId);
 
         if (bytesMap == null) {
             LOG.error("no map for channelId=" + channelId + " can be found.");
-            return null;
+            return;
         }
 
         bytesMap.output = null;
@@ -491,11 +522,11 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             outWire.write(() -> "IS_EXCEPTION").bool(true);
             outWire.write(() -> "EXCEPTION").text(toString(e));
             LOG.error("", e);
-            return null;
+            return;
         }
 
         nofityDataWritten();
-        return null;
+
     }
 
     /**
@@ -508,14 +539,14 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     @SuppressWarnings("SameReturnValue")
     @Nullable
-    private Work writeVoid(@NotNull Consumer<BytesChronicleMap> process) {
+    private void writeVoid(@NotNull Consumer<BytesChronicleMap> process) {
 
         // skip 4 bytes where we will write the size
         final BytesChronicleMap bytesMap = bytesMap(channelId);
 
         if (bytesMap == null) {
             LOG.error("no map for channelId=" + channelId + " can be found.");
-            return null;
+            return;
         }
 
         bytesMap.output = null;
@@ -523,11 +554,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             process.accept(bytesMap);
         } catch (Exception e) {
             LOG.error("", e);
-            return null;
+            return;
         }
 
 
-        return null;
     }
 
     /**
