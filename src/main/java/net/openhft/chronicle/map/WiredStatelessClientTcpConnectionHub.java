@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.atomic.AtomicLong;
@@ -211,10 +212,14 @@ public class WiredStatelessClientTcpConnectionHub {
 
         long timeoutTime = System.currentTimeMillis() + timeoutMs;
 
+        WIRED_FLAG.clear();
+
         // write a single byte
         while (WIRED_FLAG.hasRemaining()) {
-            WIRED_FLAG.clear();
-            clientChannel.write(WIRED_FLAG);
+
+            int write = clientChannel.write(WIRED_FLAG);
+            if (write == -1)
+                throw new SocketException();
             checkTimeout(timeoutTime);
         }
 
@@ -470,7 +475,7 @@ public class WiredStatelessClientTcpConnectionHub {
         while (buffer.position() < requiredNumberOfBytes) {
 
             int len = clientChannel.read(inWireByteBuffer());
-
+            System.out.println("len=" + len);
             if (len == -1)
                 throw new IORuntimeException("Disconnection to server");
 
@@ -515,6 +520,7 @@ public class WiredStatelessClientTcpConnectionHub {
         while (outBuffer.remaining() > 0) {
 
             int len = clientChannel.write(outBuffer);
+            System.out.println("write-len" + len);
             if (len == -1)
                 throw new IORuntimeException("Disconnection to server");
 

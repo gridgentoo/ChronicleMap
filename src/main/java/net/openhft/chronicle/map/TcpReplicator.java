@@ -815,7 +815,16 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
         }
 
         if (attached.useWire) {
-            attached.statelessWiredConnector.onRead(socketChannel, key);
+            int len = attached.statelessWiredConnector.onRead(socketChannel, key);
+            if (len == -1) {
+                socketChannel.register(selector, 0);
+                if (replicationConfig.autoReconnectedUponDroppedConnection()) {
+                    AbstractConnector connector = attached.connector;
+                    if (connector != null)
+                        connector.connectLater();
+                } else
+                    socketChannel.close();
+            }
             return;
         }
 
@@ -1156,7 +1165,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
                 throw e;
         }
 
-       public Bytes in() {
+        public Bytes in() {
             return entryCallback.in();
         }
 

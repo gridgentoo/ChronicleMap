@@ -109,18 +109,14 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     }
 
-    public void onRead(@NotNull SocketChannel socketChannel, SelectionKey key) throws IOException {
+    public int onRead(@NotNull SocketChannel socketChannel, SelectionKey key) throws IOException {
         this.key = key;
 
         final int len = readSocket(socketChannel);
+        System.out.println("len-read=" + len);
 
-        if (len == -1) {
-            socketChannel.close();
-            return;
-        }
-
-        if (len == 0)
-            return;
+        if (len == -1 || len == 0)
+            return len;
 
         while (inWire.bytes().remaining() > 4) {
 
@@ -131,7 +127,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                     compactInBuffer();
                 else if (shouldClearInBuffer())
                     clearInBuffer();
-                return;
+                return len;
             }
 
             long nextPosition = inWire.bytes().limit();
@@ -142,6 +138,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 inWire.bytes().limit(limit);
             }
         }
+        return len;
     }
 
     private void clearInBuffer() {
