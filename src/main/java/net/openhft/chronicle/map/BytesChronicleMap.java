@@ -21,6 +21,7 @@ import net.openhft.lang.io.Bytes;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.Set;
 
 public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
@@ -40,6 +41,12 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
     @Override
     public int actualSegments() {
         return delegate.actualSegments();
+    }
+
+    @NotNull
+    @Override
+    public Collection<Bytes> values() {
+        return (Collection<Bytes>) delegate.values();
     }
 
     @Override
@@ -133,7 +140,7 @@ public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
     @NotNull
     @Override
     public Set<Entry<Bytes, Bytes>> entrySet() {
-        throw new UnsupportedOperationException();
+        return  (Set) delegate.entrySet();
     }
 
     public Bytes put(Bytes key, Bytes value, long timestamp, byte remoteIdentifier) {

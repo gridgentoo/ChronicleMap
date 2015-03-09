@@ -1625,7 +1625,7 @@ class StatelessServerConnector<K, V> {
         valueReaderWithSize = new ReaderWithSize<>(valueSerializationBuilder);
         valueWriterWithSize = new WriterWithSize<>(valueSerializationBuilder, bufferResizer);
         this.map = map;
-        bytesMap = new BytesChronicleMap(map);
+        bytesMap = new BytesChronicleMap( map);
     }
 
     @Nullable

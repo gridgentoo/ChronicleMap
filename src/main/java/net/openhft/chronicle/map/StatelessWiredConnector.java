@@ -45,8 +45,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static java.nio.channels.SelectionKey.OP_READ;
 import static java.nio.channels.SelectionKey.OP_WRITE;
@@ -78,15 +81,41 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     @NotNull
     private final List<Replica> channelList;
 
-    private Runnable runnable = null;
+    final Consumer writeElement = new Consumer<Iterator<byte[]>>() {
+
+        @Override
+        public void accept(Iterator<byte[]> iterator) {
+            outWire.write(() -> "RESULT");
+            outWire.bytes().write(iterator.next());
+        }
+    };
+
+    final Consumer writeEntry = new Consumer<Iterator<Map.Entry<byte[], byte[]>>>() {
+
+        @Override
+        public void accept(Iterator<Map.Entry<byte[], byte[]>> iterator) {
+
+            final Map.Entry<byte[], byte[]> entry = iterator.next();
+
+            outWire.write(() -> "RESULT_KEY");
+            outWire.bytes().write(entry.getKey());
+
+            outWire.write(() -> "RESULT_VALUE");
+            outWire.bytes().write(entry.getValue());
+        }
+    };
+
+    private Runnable in = null;
+
     private byte remoteIdentifier;
     private byte localIdentifer;
-
+    private Runnable out = null;
 
     public StatelessWiredConnector(@Nullable List<Replica> channelList, byte localIdentifier) {
 
         if (channelList == null) {
-            throw new IllegalStateException("The StatelessWiredConnector currently only support maps that are set up via the replication channel. localIdentifier=" + localIdentifier);
+            throw new IllegalStateException("The StatelessWiredConnector currently only support maps " +
+                    "that are set up via the replication channel. localIdentifier=" + localIdentifier);
         }
         this.channelList = channelList;
         this.localIdentifier = localIdentifier;
@@ -97,26 +126,56 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     public void onWrite(@NotNull SocketChannel socketChannel, @NotNull SelectionKey key) throws IOException {
 
-        ((ByteBuffer) outWire.bytes().underlyingObject()).limit((int) outWire.bytes().position());
+        if (out != null) {
 
-        socketChannel.write((ByteBuffer) outWire.bytes().underlyingObject());
+            long markStart = outWire.bytes().position();
+            outWire.bytes().skip(4);
 
-        if (((ByteBuffer) outWire.bytes().underlyingObject()).remaining() == 0) {
-            ((ByteBuffer) outWire.bytes().underlyingObject()).clear();
+            try {
+                out.run();
+            } finally {
+                int len = (int) (outWire.bytes().position() - markStart);
+                outWire.bytes().writeInt(markStart, len);
+            }
+
+        }
+
+        long position = outWire.bytes().position();
+
+        if (position > Integer.MAX_VALUE)
+            throw new BufferOverflowException();
+
+        ByteBuffer buffer = (ByteBuffer) outWire.bytes().underlyingObject();
+        buffer.limit((int) position);
+
+        socketChannel.write(buffer);
+
+
+        if (buffer.remaining() == 0) {
+            buffer.clear();
             outWire.bytes().clear();
-            key.interestOps(OP_READ);
+            if (out == null)
+                key.interestOps(OP_READ);
             outMessageAdapter.clear();
         }
 
     }
 
     public int onRead(@NotNull SocketChannel socketChannel, SelectionKey key) throws IOException {
+
+
         this.key = key;
 
         final int len = readSocket(socketChannel);
 
         if (len == -1 || len == 0)
             return len;
+
+        // process the messages for remaining chunks,
+        if (in != null) {
+            in.run();
+            return len;
+        }
 
         while (inWire.bytes().remaining() > 4) {
 
@@ -205,7 +264,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
 
     @SuppressWarnings("UnusedReturnValue")
-    @Nullable
     void onEvent() {
 
         // it is assumed by this point that the buffer has all the bytes in it for this message
@@ -222,104 +280,143 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             return;
         }
 
-
         // for the length
         long markStart = outWire.bytes().position();
         outWire.bytes().skip(4);
 
-        // process the messages for remaining chunks,
-        if (runnable != null) {
-            runnable.run();
-            return;
-        }
 
         try {
+
+
+            if ("KEY_SET".contentEquals(methodName)) {
+                writeChunked(transactionId, map -> map.keySet().iterator(), writeElement);
+                return;
+            }
+
+            if ("VALUES".contentEquals(methodName)) {
+                writeChunked(transactionId, map -> map.values().iterator(), writeElement);
+                return;
+            }
+
+            if ("ENTRY_SET".contentEquals(methodName)) {
+                writeChunked(transactionId, map -> map.entrySet().iterator(), writeEntry);
+                return;
+            }
 
             // write the transaction id
             outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
 
-            if ("REMOTE_IDENTIFIER".contentEquals(methodName))
+            if ("REMOTE_IDENTIFIER".contentEquals(methodName)) {
                 this.remoteIdentifier = inWire.read(() -> "RESULT").int8();
+                return;
+            }
 
             if ("LONG_SIZE".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").int64(b.longSize()));
                 return;
             }
 
-
-            if ("IS_EMPTY".contentEquals(methodName))
+            if ("IS_EMPTY".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").bool(b.isEmpty()));
+                return;
+            }
 
-            else if ("CONTAINS_KEY".contentEquals(methodName))
+            if ("CONTAINS_KEY".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").
                         bool(b.containsKey(toReader(inWire, "ARG_1"))));
+                return;
+            }
 
-            else if ("CONTAINS_VALUE".contentEquals(methodName))
+            if ("CONTAINS_VALUE".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").
                         bool(b.containsKey(toReader(inWire, "ARG_1"))));
+                return;
+            }
 
-            else if ("GET".contentEquals(methodName))
+            if ("GET".contentEquals(methodName)) {
                 writeValue(b -> b.get(toReader(inWire, "ARG_1")));
+                return;
+            }
 
-            else if ("PUT".contentEquals(methodName))
+            if ("PUT".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.put(reader, reader, timestamp, identifier());
                 });
+                return;
+            }
 
-            else if ("REMOVE".contentEquals(methodName))
+            if ("REMOVE".contentEquals(methodName)) {
                 writeValue(b -> b.remove(toReader(inWire, "ARG_1")));
+                return;
+            }
 
-            else if ("CLEAR".contentEquals(methodName))
+            if ("CLEAR".contentEquals(methodName)) {
                 writeVoid(BytesChronicleMap::clear);
+                return;
+            }
 
-            else if ("REPLACE".contentEquals(methodName))
+            if ("REPLACE".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.replace(reader, reader);
                 });
+                return;
+            }
 
-            else if ("REPLACE_WITH_OLD_AND_NEW_VALUE".contentEquals(methodName))
+            if ("REPLACE_WITH_OLD_AND_NEW_VALUE".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2", "ARG_3");
                     bytesMap.replace(reader, reader, reader);
                 });
+                return;
+            }
 
-            else if ("PUT_IF_ABSENT".contentEquals(methodName))
+            if ("PUT_IF_ABSENT".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.putIfAbsent(reader, reader, timestamp, identifier());
                 });
+                return;
+            }
 
-            else if ("REMOVE_WITH_VALUE".contentEquals(methodName))
+            if ("REMOVE_WITH_VALUE".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
                     bytesMap.remove(reader, reader, timestamp, identifier());
                 });
+                return;
+            }
 
-
-            else if ("TO_STRING".contentEquals(methodName))
+            if ("TO_STRING".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").text(b.toString()));
 
+                return;
+            }
 
-            else if ("APPLICATION_VERSION".contentEquals(methodName))
+            if ("APPLICATION_VERSION".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").text(applicationVersion()));
+                return;
+            }
 
-            else if ("PERSISTED_DATA_VERSION".contentEquals(methodName))
+            if ("PERSISTED_DATA_VERSION".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").text(persistedDataVersion()));
 
+                return;
+            }
 
-            else if ("HASH_CODE".contentEquals(methodName))
+            if ("HASH_CODE".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").int32(b.hashCode()));
+                return;
+            }
 
-            else if ("PUT_ALL".contentEquals(methodName))
+            if ("PUT_ALL".contentEquals(methodName)) {
                 putAll();
+                return;
+            }
 
-            else if ("KEY_SET".contentEquals(methodName))
-                putAll();
 
-            else
-                throw new IllegalStateException("unsupported event=" + methodName);
+            throw new IllegalStateException("unsupported event=" + methodName);
 
             //  else if ("MAP_FOR_KEY".contentEquals(methodName)
             // else if ("PUT_MAPPED".contentEquals(methodName))
@@ -334,16 +431,50 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     }
 
+
+    private void writeChunked(long transactionId,
+                              @NotNull final Function<Map, Iterator<byte[]>> function,
+                              @NotNull final Consumer<Iterator<byte[]>> c) {
+
+        final BytesChronicleMap m = bytesMap(channelId);
+        final Iterator<byte[]> iterator = function.apply(m);
+
+        // this allows us to write more data than the buffer will allow
+        out = () -> {
+
+            // each chunk has its own transaction-id
+            outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+
+            write(map -> {
+
+                boolean hasNext = iterator.hasNext();
+                outWire.write(() -> "HAS_NEXT").bool(hasNext);
+
+                if (hasNext)
+                    c.accept(iterator);
+                else
+                    // setting out to NULL denotes that there are no more chunks
+                    out = null;
+            });
+
+        };
+
+        out.run();
+
+    }
+
+
     private void putAll() {
 
-        runnable = () -> {
+        final BytesChronicleMap bytesMap = bytesMap(StatelessWiredConnector.this.channelId);
+
+        if (bytesMap == null)
+            return;
+
+        out = () -> {
             if (!inWire.read(() -> "HAS_MORE_CHUNKS").bool())
                 // finished reading all the chunks
-                runnable = null;
-
-            BytesChronicleMap bytesMap = bytesMap(StatelessWiredConnector.this.channelId);
-
-            // todo handle when bytesMap is null
+                in = null;
 
             bytesMap.output = outMessageAdapter.outBuffer;
             final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
@@ -363,7 +494,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     @NotNull
     private CharSequence persistedDataVersion() {
-        return bytesMap(channelId).persistedDataVersion();
+        BytesChronicleMap bytesChronicleMap = bytesMap(channelId);
+        if (bytesChronicleMap == null)
+            return "";
+        return bytesChronicleMap.persistedDataVersion();
     }
 
     @NotNull
@@ -468,7 +602,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
 
     @SuppressWarnings("SameReturnValue")
-    @Nullable
     private void writeValue(@NotNull Consumer<BytesChronicleMap> process) {
 
         final BytesChronicleMap bytesMap = bytesMap(channelId);
@@ -513,14 +646,13 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         }
 
         bytesMap.output = null;
-
-        long start = outWire.bytes().position();
+        outWire.bytes().mark();
         outWire.write(() -> "IS_EXCEPTION").bool(false);
 
         try {
             c.accept(bytesMap);
         } catch (Exception e) {
-            outWire.bytes().position(start);
+            outWire.bytes().reset();
             // the idea of wire is that is platform independent,
             // so we wil have to send the exception as a String
             outWire.write(() -> "IS_EXCEPTION").bool(true);
@@ -542,7 +674,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
     @SuppressWarnings("SameReturnValue")
-    @Nullable
     private void writeVoid(@NotNull Consumer<BytesChronicleMap> process) {
 
         // skip 4 bytes where we will write the size
@@ -654,7 +785,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             wire.write(() -> "RESULT_IS_NULL").bool(isNull);
             if (!isNull) {
-
                 // write the result
                 wire.write(() -> "RESULT");
                 wire.bytes().write(outChronBytes);
@@ -675,7 +805,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         }
 
     }
-
 
     private void nofityDataWritten() {
         key.interestOps(OP_WRITE | OP_READ);

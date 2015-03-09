@@ -18,16 +18,21 @@
 
 package net.openhft.chronicle.wire;
 
-import junit.framework.Assert;
+
 import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.map.ChronicleMap;
 import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
 import net.openhft.chronicle.map.WiredStatelessChronicleMap;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static net.openhft.chronicle.map.ChronicleMapBuilder.of;
@@ -118,7 +123,7 @@ public class TestWire {
 
         try (ChronicleMap<String, String> statelessMap = builder.create()) {
             String s = ((WiredStatelessChronicleMap) statelessMap).serverApplicationVersion();
-            Assert.assertNotNull(s);
+            assertNotNull(s);
 
         }
         map1a.close();
@@ -211,7 +216,7 @@ public class TestWire {
 
             final Details actual = statelessMap.get("FirstMap");
 
-            Assert.assertEquals(expected, actual);
+            assertEquals(expected, actual);
 
             map1a.close();
             map2a.close();
@@ -250,7 +255,64 @@ public class TestWire {
             final ChronicleMap<String, String> statelessMap = builder.create();
 
             final String actual = statelessMap.get("FirstMap");
-            Assert.assertEquals(null, actual);
+            assertEquals(null, actual);
+            map1a.close();
+        }
+
+    }
+
+    @Test
+    public void testKeySet_Values_EntrySet() throws IOException, InterruptedException {
+
+        {
+            final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                    .of(++SERVER_PORT)
+                    .heartBeatInterval(1, SECONDS);
+
+            hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                    .createWithId((byte) 1);
+
+            // this is how you add maps after the custer is created
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+
+            byte identifier = (byte) 2;
+
+            final WiredChronicleMapStatelessClientBuilder<String, String> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            String.class,
+                            (short) 1);
+
+            builder.identifier(identifier);
+            final ChronicleMap<String, String> statelessMap = builder.create();
+
+            statelessMap.put("Key1", "Value1");
+            statelessMap.put("Key2", "Value2");
+
+
+            Set<String> keys = statelessMap.keySet();
+
+            assertEquals(2, keys.size());
+            assertTrue(keys.contains("Key2"));
+            assertTrue(keys.contains("Key1"));
+
+            Collection<String> values = statelessMap.values();
+
+            assertEquals(2, values.size());
+            assertTrue(values.contains("Value1"));
+            assertTrue(values.contains("Value2"));
+
+
+            Set<Map.Entry<String, String>> entries = statelessMap.entrySet();
+
+            assertEquals(2, values.size());
+            assertTrue(entries.contains(Collections.singletonMap("Key1","Value1").entrySet().iterator().next()));
+            assertTrue(entries.contains(Collections.singletonMap("Key2","Value2").entrySet().iterator().next()));
+
+
             map1a.close();
         }
 

@@ -328,8 +328,6 @@ public class WiredStatelessClientTcpConnectionHub {
 
             final Wire wire = proxyReplyThrowable(timeoutTime, transactionId);
 
-            Bytes.toDebugString(wire.bytes());
-
             // handle an exception if the message contains the IS_EXCEPTION field
             if (wire.read(() -> "IS_EXCEPTION").bool()) {
                 final String text = wire.read(() -> "EXCEPTION").text();
@@ -363,7 +361,9 @@ public class WiredStatelessClientTcpConnectionHub {
 
                 assert parkedTransactionTimeStamp == 0;
 
-                inWireClear();
+                // if we have processed all the bytes that we have read in
+                if (inWireByteBuffer().position() == intWire.bytes().position())
+                    inWireClear();
 
                 // todo change the size to include the meta data bit
                 // reads just the size
@@ -380,6 +380,8 @@ public class WiredStatelessClientTcpConnectionHub {
 
                 intWire.bytes().skip(4);
                 intWire.bytes().limit(messageSize);
+
+                System.out.println("\nread:\n" + Bytes.toDebugString(intWire.bytes()));
 
                 long transactionId0 = intWire.read(() -> "TRANSACTION_ID").int64();
 
@@ -467,22 +469,23 @@ public class WiredStatelessClientTcpConnectionHub {
      * @throws java.io.IOException socket failed to read data
      */
     @SuppressWarnings("UnusedReturnValue")
-    private Bytes readSocket(int requiredNumberOfBytes, long timeoutTime) throws IOException {
+    private void readSocket(int requiredNumberOfBytes, long timeoutTime) throws IOException {
 
         assert inBytesLock().isHeldByCurrentThread();
         ByteBuffer buffer = inWireByteBuffer();
 
-        while (buffer.position() < requiredNumberOfBytes) {
+        buffer.limit(buffer.position() + requiredNumberOfBytes);
+        long start = buffer.position();
 
-            int len = clientChannel.read(inWireByteBuffer());
+        while (buffer.position() - start < requiredNumberOfBytes) {
+
+            int len = clientChannel.read(buffer);
 
             if (len == -1)
                 throw new IORuntimeException("Disconnection to server");
 
             checkTimeout(timeoutTime);
         }
-
-        return intWire.bytes();
     }
 
     private ByteBuffer inWireByteBuffer() {
@@ -511,8 +514,13 @@ public class WiredStatelessClientTcpConnectionHub {
             return;
         }
 
-        ByteBuffer outBuffer = (ByteBuffer) outWire.bytes().underlyingObject();
+        final ByteBuffer outBuffer = (ByteBuffer) outWire.bytes().underlyingObject();
         outBuffer.limit((int) outWire.bytes().position());
+        outBuffer.position(4);
+
+        System.out.println("\n--------------------------------------------\n" +
+                "write:\n\n" + Bytes.toDebugString(outBuffer));
+
         outBuffer.position(0);
 
         upateLargestChunkSoFarSize(outBuffer);

@@ -28,9 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -281,14 +279,98 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         proxyReturnVoid(CLEAR.toString());
     }
 
-    @NotNull
+
+    public Set<K> keySet() {
+        final long startTime = System.currentTimeMillis();
+        final Set<K> result = new HashSet<K>();
+        // send
+        final long transactionId = proxySend("KEY_SET", startTime);
+        assert !hub.outBytesLock().isHeldByCurrentThread();
+        final long timeoutTime = startTime + hub.timeoutMs;
+
+        for (; ; ) {
+
+            // receive
+            hub.inBytesLock().lock();
+            try {
+                final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
+
+
+                if (wireIn.read(() -> "HAS_NEXT").bool()) {
+                    K k = readK("RESULT", wireIn, null);
+                    result.add(k);
+                } else
+                    break;
+
+
+                //  return result;
+
+            } finally {
+                hub.inBytesLock().unlock();
+            }
+        }
+        return result;
+    }
+
+
     public Collection<V> values() {
-        throw new UnsupportedOperationException();
+        final long startTime = System.currentTimeMillis();
+        final Set<V> result = new HashSet<V>();
+        // send
+        final long transactionId = proxySend("VALUES", startTime);
+        assert !hub.outBytesLock().isHeldByCurrentThread();
+        final long timeoutTime = startTime + hub.timeoutMs;
+
+        for (; ; ) {
+
+            // receive
+            hub.inBytesLock().lock();
+            try {
+                final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
+
+
+                if (wireIn.read(() -> "HAS_NEXT").bool()) {
+                    V v = readV("RESULT", wireIn, null);
+                    result.add(v);
+                } else
+                    break;
+
+            } finally {
+                hub.inBytesLock().unlock();
+            }
+        }
+        return result;
     }
 
     @NotNull
     public Set<Map.Entry<K, V>> entrySet() {
-        throw new UnsupportedOperationException();
+        final long startTime = System.currentTimeMillis();
+        final Map<K, V> result = new HashMap<K, V>();
+
+        // send
+        final long transactionId = proxySend("ENTRY_SET", startTime);
+        assert !hub.outBytesLock().isHeldByCurrentThread();
+        final long timeoutTime = startTime + hub.timeoutMs;
+
+        for (; ; ) {
+
+            // receive
+            hub.inBytesLock().lock();
+            try {
+                final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
+
+                if (wireIn.read(() -> "HAS_NEXT").bool()) {
+                    result.put(
+                            readK("RESULT_KEY", wireIn, null),
+                            readV("RESULT_VALUE", wireIn, null));
+                } else
+                    break;
+
+            } finally {
+                hub.inBytesLock().unlock();
+            }
+        }
+        return result.entrySet();
     }
 
     /**
@@ -302,10 +384,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         throw new UnsupportedOperationException();
     }
 
-    @NotNull
-    public Set<K> keySet() {
-        throw new UnsupportedOperationException("todo");
-    }
 
     private long readLong(long transactionId, long startTime) {
         assert !hub.outBytesLock().isHeldByCurrentThread();
@@ -340,7 +418,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     }
 
 
-    private V readValue(long transactionId, long startTime, final V usingValue) {
+    private V readValue(String argName, long transactionId, long startTime, final V usingValue) {
         assert !hub.outBytesLock().isHeldByCurrentThread();
         long timeoutTime = startTime + hub.timeoutMs;
 
@@ -352,36 +430,66 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
             if (wireIn.read(() -> "RESULT_IS_NULL").bool())
                 return null;
 
-            if (StringBuilder.class.isAssignableFrom(vClass)) {
-                wireIn.read(() -> "RESULT").text((StringBuilder) usingValue);
-                return usingValue;
-            } else if (Marshallable.class.isAssignableFrom(vClass)) {
-
-                if (usingValue == null)
-                    try {
-                        V v = vClass.newInstance();
-                        wireIn.read(() -> "RESULT").marshallable((Marshallable) v);
-                        return v;
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-
-                wireIn.read(() -> "RESULT").marshallable((Marshallable) usingValue);
-                return usingValue;
-
-            } else if (String.class.isAssignableFrom(vClass)) {
-                //noinspection unchecked
-                return (V) wireIn.read(() -> "RESULT").text();
-
-            } else {
-                throw new IllegalStateException("unsupported type");
-            }
+            return readV(argName, wireIn, usingValue);
 
         } finally {
             hub.inBytesLock().unlock();
         }
     }
 
+    private V readV(String argName, Wire wireIn, V usingValue) {
+        if (StringBuilder.class.isAssignableFrom(vClass)) {
+            wireIn.read(() -> argName).text((StringBuilder) usingValue);
+            return usingValue;
+        } else if (Marshallable.class.isAssignableFrom(vClass)) {
+
+            if (usingValue == null)
+                try {
+                    V v = vClass.newInstance();
+                    wireIn.read(() -> argName).marshallable((Marshallable) v);
+                    return v;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+            wireIn.read(() -> argName).marshallable((Marshallable) usingValue);
+            return usingValue;
+
+        } else if (String.class.isAssignableFrom(vClass)) {
+            //noinspection unchecked
+            return (V) wireIn.read(() -> argName).text();
+
+        } else {
+            throw new IllegalStateException("unsupported type");
+        }
+    }
+
+    private K readK(String argName, Wire wireIn, K usingValue) {
+        if (StringBuilder.class.isAssignableFrom(kClass)) {
+            wireIn.read(() -> argName).text((StringBuilder) usingValue);
+            return usingValue;
+        } else if (Marshallable.class.isAssignableFrom(kClass)) {
+
+            if (usingValue == null)
+                try {
+                    K v = kClass.newInstance();
+                    wireIn.read(() -> argName).marshallable((Marshallable) v);
+                    return v;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+            wireIn.read(() -> argName).marshallable((Marshallable) usingValue);
+            return usingValue;
+
+        } else if (String.class.isAssignableFrom(vClass)) {
+            //noinspection unchecked
+            return (K) wireIn.read(() -> argName).text();
+
+        } else {
+            throw new IllegalStateException("unsupported type");
+        }
+    }
 
     private boolean readBoolean(long transactionId, long startTime) {
         assert !hub.outBytesLock().isHeldByCurrentThread();
@@ -413,22 +521,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         }
     }
 
-/*    private String readString(long transactionId, long startTime) {
-        assert !hub.outBytesLock().isHeldByCurrentThread();
-
-        long timeoutTime = startTime + hub.timeoutMs;
-
-        // receive
-        hub.inBytesLock().lock();
-        try {
-            final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
-            return wireIn.read(() -> "RESULT").text();
-        } finally {
-            hub.inBytesLock().unlock();
-        }
-    }*/
-
-
     @SuppressWarnings("SameParameterValue")
     private boolean proxyReturnBoolean(@NotNull final String methodName, K key, V value) {
         final long startTime = System.currentTimeMillis();
@@ -450,7 +542,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         return readBoolean(transactionId, startTime);
 
     }
-
 
     @SuppressWarnings("SameParameterValue")
     private boolean proxyReturnBoolean(@NotNull final String methodName, K key, V value1, V value2) {
@@ -475,38 +566,14 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     @SuppressWarnings("SameParameterValue")
     private boolean proxyReturnBooleanV(@NotNull final String methodName, V value) {
         final long startTime = System.currentTimeMillis();
-
-        long transactionId;
-        hub.outBytesLock().lock();
-        try {
-            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField("METHOD_NAME", methodName);
-            writeField("ARG_1", value);
-            hub.writeSocket(hub.outWire());
-        } finally {
-            hub.outBytesLock().unlock();
-        }
-
-        return readBoolean(transactionId, startTime);
+        return readBoolean(proxySend(methodName, startTime, value), startTime);
     }
 
     @SuppressWarnings("SameParameterValue")
     private boolean proxyReturnBooleanK(@NotNull final String methodName, K key) {
         final long startTime = System.currentTimeMillis();
 
-        long transactionId;
-
-        hub.outBytesLock().lock();
-        try {
-            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField("METHOD_NAME", methodName);
-            writeField("ARG_1", key);
-            hub.writeSocket(hub.outWire());
-        } finally {
-            hub.outBytesLock().unlock();
-        }
-
-        return readBoolean(transactionId, startTime);
+        return readBoolean(proxySend(methodName, startTime, key), startTime);
     }
 
     @SuppressWarnings("SameParameterValue")
@@ -611,7 +678,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
             return null;
 
         if (resultType == vClass)
-            return (R) readValue(transactionId, startTime, null);
+            return (R) readValue("RESULT", transactionId, startTime, null);
 
         else
             throw new UnsupportedOperationException("class of type class=" + resultType + " is not " +
@@ -624,24 +691,44 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
 
         long transactionId;
 
-        hub.outBytesLock().lock();
-        try {
-            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField("METHOD_NAME", methodName);
-            writeField("ARG_1", key);
-            hub.writeSocket(hub.outWire());
-        } finally {
-            hub.outBytesLock().unlock();
-        }
+        transactionId = proxySend(methodName, startTime, key);
 
         if (eventReturnsNull(methodName))
             return null;
 
         if (rClass == vClass)
-            return (R) readValue(transactionId, startTime, null);
+            return (R) readValue("RESULT", transactionId, startTime, null);
         else
             throw new UnsupportedOperationException("class of type class=" + rClass + " is not " +
                     "supported");
+    }
+
+    private long proxySend(String methodName, long startTime, Object arg1) {
+        long transactionId;
+        hub.outBytesLock().lock();
+        try {
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
+            writeField("METHOD_NAME", methodName);
+            writeField("ARG_1", arg1);
+            hub.writeSocket(hub.outWire());
+        } finally {
+            hub.outBytesLock().unlock();
+        }
+        return transactionId;
+    }
+
+
+    private long proxySend(String methodName, long startTime) {
+        long transactionId;
+        hub.outBytesLock().lock();
+        try {
+            transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
+            writeField("METHOD_NAME", methodName);
+            hub.writeSocket(hub.outWire());
+        } finally {
+            hub.outBytesLock().unlock();
+        }
+        return transactionId;
     }
 
     private boolean eventReturnsNull(@NotNull String methodName) {
