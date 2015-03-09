@@ -76,8 +76,7 @@ public class TestWire {
             final ChronicleMap<String, String> statelessMap = builder.create();
             ((WiredStatelessChronicleMap) statelessMap).createChannel((short) 2);
 
-
-            WiredChronicleMapStatelessClientBuilder localhost = new WiredChronicleMapStatelessClientBuilder<>(
+            WiredChronicleMapStatelessClientBuilder<String, String> localhost = new WiredChronicleMapStatelessClientBuilder<String, String>(
                     new InetSocketAddress("localhost", SERVER_PORT),
                     String.class,
                     String.class,
