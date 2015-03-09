@@ -24,15 +24,11 @@ import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
 import net.openhft.chronicle.map.ChronicleMap;
 import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
 import net.openhft.chronicle.map.WiredStatelessChronicleMap;
-import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static net.openhft.chronicle.map.ChronicleMapBuilder.of;
@@ -318,6 +314,58 @@ public class TestWire {
 
     }
 
+
+    @Test
+    public void testPutAll() throws IOException, InterruptedException {
+
+        {
+            final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                    .of(++SERVER_PORT)
+                    .heartBeatInterval(1, SECONDS);
+
+            hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                    .createWithId((byte) 1);
+
+            // this is how you add maps after the custer is created
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+
+            byte identifier = (byte) 2;
+
+            final WiredChronicleMapStatelessClientBuilder<String, String> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            String.class,
+                            (short) 1);
+
+            builder.identifier(identifier);
+            final ChronicleMap<String, String> statelessMap = builder.create();
+
+
+            Map<String, String> map = new HashMap<>();
+            map.put("Key1", "Value1");
+            map.put("Key2", "Value2");
+
+            statelessMap.putAll(map);
+
+            Set<String> keys = statelessMap.keySet();
+
+            assertEquals(2, keys.size());
+            assertTrue(keys.contains("Key2"));
+            assertTrue(keys.contains("Key1"));
+
+            Collection<String> values = statelessMap.values();
+
+            assertEquals(2, values.size());
+            assertTrue(values.contains("Value1"));
+            assertTrue(values.contains("Value2"));
+
+            map1a.close();
+        }
+
+    }
 
     public static class Details implements Marshallable {
 

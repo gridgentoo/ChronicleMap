@@ -381,7 +381,8 @@ public class WiredStatelessClientTcpConnectionHub {
                 intWire.bytes().skip(4);
                 intWire.bytes().limit(messageSize);
 
-                System.out.println("\nread:\n" + Bytes.toDebugString(intWire.bytes()));
+                System.out.println("\n--------------------------------\n" +
+                        "\nclient read:\n" + Bytes.toDebugString(intWire.bytes()));
 
                 long transactionId0 = intWire.read(() -> "TRANSACTION_ID").int64();
 
@@ -519,7 +520,7 @@ public class WiredStatelessClientTcpConnectionHub {
         outBuffer.position(4);
 
         System.out.println("\n--------------------------------------------\n" +
-                "write:\n\n" + Bytes.toDebugString(outBuffer));
+                "client wrote:\n\n" + Bytes.toDebugString(outBuffer));
 
         outBuffer.position(0);
 

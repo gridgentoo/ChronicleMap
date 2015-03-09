@@ -44,10 +44,7 @@ import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -171,11 +168,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         if (len == -1 || len == 0)
             return len;
 
-        // process the messages for remaining chunks,
-        if (in != null) {
-            in.run();
-            return len;
-        }
 
         while (inWire.bytes().remaining() > 4) {
 
@@ -263,6 +255,40 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
 
+    Map<Long, Runnable> incompleteWork = new HashMap<>();
+
+
+    private void writeChunked(long transactionId,
+                              @NotNull final Function<Map, Iterator<byte[]>> function,
+                              @NotNull final Consumer<Iterator<byte[]>> c) {
+
+        final BytesChronicleMap m = bytesMap(channelId);
+        final Iterator<byte[]> iterator = function.apply(m);
+
+        // this allows us to write more data than the buffer will allow
+        out = () -> {
+
+            // each chunk has its own transaction-id
+            outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+
+            write(map -> {
+
+                boolean hasNext = iterator.hasNext();
+                outWire.write(() -> "HAS_NEXT").bool(hasNext);
+
+                if (hasNext)
+                    c.accept(iterator);
+                else
+                    // setting out to NULL denotes that there are no more chunks
+                    out = null;
+            });
+
+        };
+
+        out.run();
+
+    }
+
     @SuppressWarnings("UnusedReturnValue")
     void onEvent() {
 
@@ -284,7 +310,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         long markStart = outWire.bytes().position();
         outWire.bytes().skip(4);
 
-
         try {
 
 
@@ -302,6 +327,12 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 writeChunked(transactionId, map -> map.entrySet().iterator(), writeEntry);
                 return;
             }
+
+            if ("PUT_ALL".contentEquals(methodName)) {
+                putAll(transactionId);
+                return;
+            }
+
 
             // write the transaction id
             outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
@@ -410,11 +441,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 return;
             }
 
-            if ("PUT_ALL".contentEquals(methodName)) {
-                putAll();
-                return;
-            }
-
 
             throw new IllegalStateException("unsupported event=" + methodName);
 
@@ -424,68 +450,96 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
 
         } finally {
+
+
             int len = (int) (outWire.bytes().position() - markStart);
-            outWire.bytes().writeInt(markStart, len);
+
+            if (len == 4)
+                // remove the 4 byte len as nothing was written
+                outWire.bytes().position(markStart);
+            else
+                outWire.bytes().writeInt(markStart, len);
+
+            if (len > 4)
+                System.out.println("\n----------------------------\n\nserver wrote:\n" + Bytes.toDebugString(outWire.bytes(), markStart + 4, len - 4));
         }
 
 
     }
 
+    private byte[] toBytes(String fieldName) {
 
-    private void writeChunked(long transactionId,
-                              @NotNull final Function<Map, Iterator<byte[]>> function,
-                              @NotNull final Consumer<Iterator<byte[]>> c) {
+        Wire wire = inWire;
+        ValueIn read = wire.read(() -> fieldName);
 
-        final BytesChronicleMap m = bytesMap(channelId);
-        final Iterator<byte[]> iterator = function.apply(m);
+        long l = read.readLength();
+        if (l > Integer.MAX_VALUE)
+            throw new BufferOverflowException();
 
-        // this allows us to write more data than the buffer will allow
-        out = () -> {
+        int fieldLength = (int) l;
 
-            // each chunk has its own transaction-id
-            outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+        long endPos = wire.bytes().position() + fieldLength;
+        long limit = wire.bytes().limit();
 
-            write(map -> {
+        try {
+            byte[] bytes = new byte[fieldLength];
 
-                boolean hasNext = iterator.hasNext();
-                outWire.write(() -> "HAS_NEXT").bool(hasNext);
+            wire.bytes().read(bytes);
+            return bytes;
 
-                if (hasNext)
-                    c.accept(iterator);
-                else
-                    // setting out to NULL denotes that there are no more chunks
-                    out = null;
-            });
+        } finally
 
-        };
-
-        out.run();
-
+        {
+            wire.bytes().position(endPos);
+            wire.bytes().limit(limit);
+        }
     }
 
-
-    private void putAll() {
+    private void putAll(long transactionId) {
 
         final BytesChronicleMap bytesMap = bytesMap(StatelessWiredConnector.this.channelId);
 
         if (bytesMap == null)
             return;
 
-        out = () -> {
-            if (!inWire.read(() -> "HAS_MORE_CHUNKS").bool())
-                // finished reading all the chunks
-                in = null;
+        Runnable runnable = incompleteWork.get(transactionId);
 
-            bytesMap.output = outMessageAdapter.outBuffer;
-            final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
-            try {
-                bytesMap.put(reader, reader, timestamp, identifier());
-            } catch (Exception e) {
-                // todo send back exceptions
+        if (runnable != null) {
+            runnable.run();
+            return;
+        }
+
+        runnable = new Runnable() {
+
+            // we should try and collect the data and then apply it atomically as quickly possible
+            final Map<byte[], byte[]> collectData = new HashMap<>();
+
+            @Override
+            public void run() {
+                if (inWire.read(() -> "HAS_NEXT").bool()) {
+                    collectData.put(toBytes("ARG_1"), toBytes("ARG_2"));
+                } else {
+                    // the old code assumed that all the data would fit into a single buffer
+                    // this assumption is invalid
+                    if (!collectData.isEmpty()) {
+                        bytesMap.delegate.putAll((Map) collectData);
+                        incompleteWork.remove(transactionId);
+                        outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+
+                        // todo handle the case where there is an exception
+                        outWire.write(() -> "IS_EXCEPTION").bool(false);
+
+                        nofityDataWritten();
+                    }
+                }
             }
-
         };
+
+        incompleteWork.put(transactionId, runnable);
+        runnable.run();
+
     }
+
 
     private byte identifier() {
         // if the client provides a remote identifier then we will use that otherwise we will use the local identifier

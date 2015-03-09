@@ -26,7 +26,7 @@ import java.util.Set;
 
 public class BytesChronicleMap implements AbstractChronicleMap<Bytes, Bytes> {
 
-    private final VanillaChronicleMap<?, ?, ?, ?, ?, ?> delegate;
+    final VanillaChronicleMap<?, ?, ?, ?, ?, ?> delegate;
     MapIOBuffer output;
 
     public BytesChronicleMap(VanillaChronicleMap<?, ?, ?, ?, ?, ?> delegate) {
