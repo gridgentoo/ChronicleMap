@@ -40,14 +40,6 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
     private byte localIdentifier;
     private short channelID;
 
-    public WiredStatelessClientTcpConnectionHub hub() {
-        return hub;
-    }
-
-    public void hub(WiredStatelessClientTcpConnectionHub hub) {
-        this.hub = hub;
-    }
-
     public WiredChronicleMapStatelessClientBuilder(InetSocketAddress remoteAddress, Class keyClass, Class valueClass, short channelID) {
         this.keyClass = keyClass;
         this.valueClass = valueClass;
@@ -155,4 +147,16 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
     public short channelID() {
         return channelID;
     }
+
+
+
+    public WiredStatelessClientTcpConnectionHub hub() {
+        return hub;
+    }
+
+    public WiredChronicleMapStatelessClientBuilder<K, V> hub(WiredStatelessClientTcpConnectionHub hub) {
+        this.hub = hub;
+        return this;
+    }
+
 }

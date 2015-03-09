@@ -77,11 +77,13 @@ public class TestWire {
             ((WiredStatelessChronicleMap) statelessMap).createChannel((short) 2);
 
 
-            ChronicleMap<String, String> map2 = new WiredChronicleMapStatelessClientBuilder<String, String>(
+            WiredChronicleMapStatelessClientBuilder localhost = new WiredChronicleMapStatelessClientBuilder<>(
                     new InetSocketAddress("localhost", SERVER_PORT),
                     String.class,
                     String.class,
-                    (short) 2).create();
+                    (short) 2).hub(builder.hub());
+
+            ChronicleMap<String, String> map2 = localhost.create();
 
             map2.put("hello", "world");
 
