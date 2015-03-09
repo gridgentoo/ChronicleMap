@@ -18,6 +18,7 @@ package net.openhft.chronicle.map;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.function.Supplier;
 
 abstract class Replicator {
 
@@ -49,5 +50,6 @@ abstract class Replicator {
      */
     protected abstract Closeable applyTo(ChronicleMapBuilder builder,
                                          Replica map, Replica.EntryExternalizable entryExternalizable,
-                                         final ChronicleMap chronicleMap) throws IOException;
+                                         final ChronicleMap chronicleMap,
+                                         Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException;
 }

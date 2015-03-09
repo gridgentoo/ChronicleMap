@@ -22,12 +22,12 @@ import net.openhft.chronicle.hash.ChronicleHashBuilder;
 import net.openhft.chronicle.hash.ChronicleHashInstanceBuilder;
 import net.openhft.chronicle.hash.impl.ChronicleHashBuilderImpl;
 import net.openhft.chronicle.hash.impl.hashlookup.HashLookup;
-import net.openhft.chronicle.hash.serialization.internal.SerializationBuilder;
 import net.openhft.chronicle.hash.replication.*;
 import net.openhft.chronicle.hash.serialization.*;
 import net.openhft.chronicle.hash.serialization.internal.MetaBytesInterop;
 import net.openhft.chronicle.hash.serialization.internal.MetaBytesWriter;
 import net.openhft.chronicle.hash.serialization.internal.MetaProvider;
+import net.openhft.chronicle.hash.serialization.internal.SerializationBuilder;
 import net.openhft.chronicle.set.ChronicleSetBuilder;
 import net.openhft.lang.Maths;
 import net.openhft.lang.io.Bytes;
@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static java.lang.Math.round;
 import static net.openhft.chronicle.hash.impl.util.Objects.builderEquals;
@@ -1458,14 +1459,21 @@ public final class ChronicleMapBuilder<K, V> implements
                 if (singleHashReplication.udpTransport() != null)
                     replicators.add(Replicators.udp(singleHashReplication.udpTransport()));
             } else {
-                ReplicationHub hub = channel.hub();
+                final ReplicationHub hub = channel.hub();
 
-                ChannelProvider provider = ChannelProvider.getProvider(hub);
+                Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier =
+                        () -> new StatelessWiredConnector(instance(), hub);
+
+                ChannelProvider provider = ChannelProvider.getProvider(hub, statelessWiredConnectorSupplier);
                 ChannelProvider.ChronicleChannel ch = provider.createChannel(channel.channelId());
                 replicators.add(ch);
             }
             for (Replicator replicator : replicators) {
-                Closeable token = replicator.applyTo(this, result, result, map);
+
+                Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier =
+                        () -> new StatelessWiredConnector(instance(), channel.hub());
+
+                Closeable token = replicator.applyTo(this, result, result, map, statelessWiredConnectorSupplier);
                 if (replicators.size() == 1 && token.getClass() == UdpReplicator.class) {
                     LOG.warn(Replicators.ONLY_UDP_WARN_MESSAGE);
                 }

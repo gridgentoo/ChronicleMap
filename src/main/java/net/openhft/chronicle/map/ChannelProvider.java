@@ -38,6 +38,7 @@ import java.util.concurrent.LinkedTransferQueue;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 
 import static java.lang.Math.min;
 import static java.nio.ByteBuffer.wrap;
@@ -53,7 +54,8 @@ final class ChannelProvider implements Closeable {
 
     static final Map<ReplicationHub, ChannelProvider> implMapping = new IdentityHashMap<>();
 
-    static synchronized ChannelProvider getProvider(ReplicationHub hub) throws IOException {
+    static synchronized ChannelProvider getProvider(ReplicationHub hub,
+                                                    Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException {
         ChannelProvider channelProvider = implMapping.get(hub);
         if (channelProvider != null)
             return channelProvider;
@@ -70,7 +72,8 @@ final class ChannelProvider implements Closeable {
                     hub.remoteNodeValidator(),
                     null,
                     hub.name(),
-                    channelProvider.chronicleChannelList());
+                    channelProvider.chronicleChannelList(),
+                    statelessWiredConnectorSupplier);
 
             channelProvider.add(tcpReplicator);
         }
@@ -547,13 +550,6 @@ final class ChannelProvider implements Closeable {
             return localIdentifier;
         }
 
-        @Override
-        protected Closeable applyTo(ChronicleMapBuilder builder,
-                                    Replica map, EntryExternalizable entryExternalizable,
-                                    final ChronicleMap chronicleMap) {
-            add(chronicleChannel, map, entryExternalizable);
-            return this;
-        }
 
         @Override
         public void close() throws IOException {
@@ -569,6 +565,16 @@ final class ChannelProvider implements Closeable {
             } finally {
                 channelDataLock.writeLock().unlock();
             }
+        }
+
+        @Override
+        protected Closeable applyTo(ChronicleMapBuilder builder,
+                                    Replica map,
+                                    EntryExternalizable entryExternalizable,
+                                    ChronicleMap chronicleMap,
+                                    Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException {
+            add(chronicleChannel, map, entryExternalizable);
+            return this;
         }
     }
 }

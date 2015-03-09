@@ -33,6 +33,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static java.util.Collections.emptyList;
+import static net.openhft.chronicle.map.StatelessChronicleMap.EventId.TO_STRING;
 import static net.openhft.chronicle.map.WiredStatelessChronicleMap.EventId.*;
 
 
@@ -269,6 +270,15 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         return proxyReturnObject(vClass, removeReturnsNull ? REMOVE_WITHOUT_ACC.toString() : REMOVE.toString(), (K) key);
     }
 
+    @NotNull
+    public void createChannel(short channelID) {
+        proxyReturnVoid(() -> {
+            writeField(METHOD_NAME, "CREATE_CHANNEL");
+            hub.outWire().write(() -> "ARG_1").int16(channelID);
+        });
+    }
+
+
     public void putAll(@NotNull Map<? extends K, ? extends V> map) {
 
         final long startTime = System.currentTimeMillis();
@@ -341,7 +351,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     }
 
     public void clear() {
-        proxyReturnVoid(CLEAR.toString());
+        proxyReturnVoid(() -> writeField(METHOD_NAME, CLEAR.toString()));
     }
 
 
@@ -674,16 +684,16 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     }
 
     @SuppressWarnings("SameParameterValue")
-    private void proxyReturnVoid(@NotNull final String methodName) {
+    private void proxyReturnVoid(Runnable r) {
+
 
         final long startTime = System.currentTimeMillis();
-
         long transactionId;
 
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
+            r.run();
             hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();

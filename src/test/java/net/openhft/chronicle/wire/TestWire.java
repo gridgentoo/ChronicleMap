@@ -48,6 +48,51 @@ public class TestWire {
 
 
     @Test
+    public void testCreateChannel() throws IOException, InterruptedException {
+
+        {
+            final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                    .of(++SERVER_PORT)
+                    .heartBeatInterval(1, SECONDS);
+
+            hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                    .createWithId((byte) 1);
+
+            // this is how you add maps after the custer is created
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+
+            byte identifier = (byte) 2;
+
+            final WiredChronicleMapStatelessClientBuilder<String, String> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            String.class,
+                            (short) 1);
+
+            builder.identifier(identifier);
+            final ChronicleMap<String, String> statelessMap = builder.create();
+            ((WiredStatelessChronicleMap) statelessMap).createChannel((short) 2);
+
+
+            ChronicleMap<String, String> map2 = new WiredChronicleMapStatelessClientBuilder<String, String>(
+                    new InetSocketAddress("localhost", SERVER_PORT),
+                    String.class,
+                    String.class,
+                    (short) 2).create();
+
+            map2.put("hello", "world");
+
+            assertEquals(1, map2.size());
+
+            map1a.close();
+        }
+
+    }
+
+    @Test
     public void testSimplePutStringWithChannels() throws IOException, InterruptedException {
 
         {

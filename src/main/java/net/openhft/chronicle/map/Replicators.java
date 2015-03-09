@@ -27,6 +27,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.function.Supplier;
 
 final class Replicators {
 
@@ -111,25 +112,28 @@ final class Replicators {
 
 
             @Override
-            protected Closeable applyTo(@NotNull final ChronicleMapBuilder builder,
-                                        @NotNull final Replica replica,
-                                        @NotNull final Replica.EntryExternalizable entryExternalizable,
-                                        final ChronicleMap chronicleMap) throws IOException {
+            protected Closeable applyTo(ChronicleMapBuilder builder,
+                                        Replica map,
+                                        Replica.EntryExternalizable entryExternalizable,
+                                        ChronicleMap chronicleMap,
+                                        Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException {
 
                 TcpTransportAndNetworkConfig tcpConfig = replication.tcpTransportAndNetwork();
 
                 TcpReplicator.StatelessClientParameters statelessClientParameters =
                         new TcpReplicator.StatelessClientParameters(
-                        (VanillaChronicleMap) chronicleMap,
-                        builder.keyBuilder,
-                        builder.valueBuilder);
+                                (VanillaChronicleMap) chronicleMap,
+                                builder.keyBuilder,
+                                builder.valueBuilder);
 
-                return new TcpReplicator(replica, entryExternalizable,
+                return new TcpReplicator(map, entryExternalizable,
                         tcpConfig,
                         replication.remoteNodeValidator(), statelessClientParameters,
                         replication.name(),
-                        null);
+                        null, statelessWiredConnectorSupplier);
             }
+
+
         };
     }
 
@@ -137,14 +141,15 @@ final class Replicators {
             final UdpTransportConfig replicationConfig) {
         return new Replicator() {
             @Override
-            protected Closeable applyTo(@NotNull final ChronicleMapBuilder builder,
-                                        @NotNull final Replica map,
-                                        @NotNull final Replica.EntryExternalizable entryExternalizable,
-                                        final ChronicleMap chronicleMap)
-                    throws IOException {
+            protected Closeable applyTo(ChronicleMapBuilder builder,
+                                        Replica map,
+                                        Replica.EntryExternalizable entryExternalizable,
+                                        ChronicleMap chronicleMap,
+                                        Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException {
                 return new UdpReplicator(map, entryExternalizable, replicationConfig
                 );
             }
+
         };
     }
 }

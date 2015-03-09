@@ -57,4 +57,6 @@ public interface ChronicleHashInstanceBuilder<H extends ChronicleHash> {
     ChronicleHashInstanceBuilder<H> name(String name);
 
     H create() throws IOException;
+
+
 }

@@ -24,7 +24,9 @@ package net.openhft.chronicle.map;
 
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.bytes.BytesMarshallable;
+import net.openhft.chronicle.hash.ChronicleHashInstanceBuilder;
 import net.openhft.chronicle.hash.impl.util.BuildVersion;
+import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.wire.TextWire;
 import net.openhft.chronicle.wire.ValueIn;
 import net.openhft.chronicle.wire.Wire;
@@ -45,6 +47,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -70,13 +73,16 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     @NotNull
     private final ByteBuffer inLanByteBuffer = ByteBuffer.allocateDirect(64);
     private final StringBuilder methodName = new StringBuilder();
-    private final byte localIdentifier;
+    private final ChronicleHashInstanceBuilder<ChronicleMap<K, V>> chronicleHashInstanceBuilder;
+
+    private byte localIdentifier;
+
 
     private long timestamp;
     private short channelId;
-
     @NotNull
-    private final List<Replica> channelList;
+    private List<Replica> channelList;
+    private ReplicationHub hub;
 
     final Consumer writeElement = new Consumer<Iterator<byte[]>>() {
 
@@ -108,18 +114,26 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private byte localIdentifer;
     private Runnable out = null;
 
-    public StatelessWiredConnector(@Nullable List<Replica> channelList, byte localIdentifier) {
 
-        if (channelList == null) {
-            throw new IllegalStateException("The StatelessWiredConnector currently only support maps " +
-                    "that are set up via the replication channel. localIdentifier=" + localIdentifier);
-        }
-        this.channelList = channelList;
-        this.localIdentifier = localIdentifier;
-
+    public StatelessWiredConnector(ChronicleHashInstanceBuilder<ChronicleMap<K, V>> chronicleHashInstanceBuilder, ReplicationHub hub) {
+        this.chronicleHashInstanceBuilder = chronicleHashInstanceBuilder;
+        this.hub = hub;
     }
 
     private SelectionKey key;
+
+    public void setChannelList(@NotNull List<Replica> channelList) {
+        if (channelList == null)
+            throw new IllegalStateException("The StatelessWiredConnector currently only support maps " +
+                    "that are set up via the replication channel. localIdentifier=" + localIdentifier);
+
+        this.channelList = channelList;
+    }
+
+    public void setLocalIdentifier(byte localIdentifier) {
+        this.localIdentifier = localIdentifier;
+    }
+
 
     public void onWrite(@NotNull SocketChannel socketChannel, @NotNull SelectionKey key) throws IOException {
 
@@ -312,7 +326,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         try {
 
-
             if ("KEY_SET".contentEquals(methodName)) {
                 writeChunked(transactionId, map -> map.keySet().iterator(), writeElement);
                 return;
@@ -336,6 +349,17 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             // write the transaction id
             outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+
+            if ("CREATE_CHANNEL".contentEquals(methodName)) {
+
+                writeVoid(() -> {
+                    short channelId1 = inWire.read(() -> "ARG_1").int16();
+                    chronicleHashInstanceBuilder.replicatedViaChannel(hub.createChannel(channelId1)).create();
+                    return null;
+                });
+                return;
+            }
+
 
             if ("REMOTE_IDENTIFIER".contentEquals(methodName)) {
                 this.remoteIdentifier = inWire.read(() -> "RESULT").int8();
@@ -719,6 +743,37 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     }
 
+    @SuppressWarnings("SameReturnValue")
+    private void writeVoid(@NotNull Callable r) {
+
+        final BytesChronicleMap bytesMap = bytesMap(channelId);
+
+        if (bytesMap == null) {
+            LOG.error("no map for channelId=" + channelId + " can be found.");
+            return;
+        }
+
+        bytesMap.output = null;
+        outWire.bytes().mark();
+        outWire.write(() -> "IS_EXCEPTION").bool(false);
+
+        try {
+            r.call();
+        } catch (Exception e) {
+            outWire.bytes().reset();
+            // the idea of wire is that is platform independent,
+            // so we wil have to send the exception as a String
+            outWire.write(() -> "IS_EXCEPTION").bool(true);
+            outWire.write(() -> "EXCEPTION").text(toString(e));
+            LOG.error("", e);
+            return;
+        }
+
+        nofityDataWritten();
+
+    }
+
+
     /**
      * only used for debugging
      */
@@ -757,6 +812,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         final PrintWriter pw = new PrintWriter(sw);
         t.printStackTrace(pw);
         return sw.toString();
+    }
+
+    public void localIdentifier(byte localIdentifier) {
+        this.localIdentifer = localIdentifier;
     }
 
 

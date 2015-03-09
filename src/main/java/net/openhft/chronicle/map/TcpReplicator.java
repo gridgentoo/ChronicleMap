@@ -45,6 +45,7 @@ import java.nio.channels.*;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 import static java.nio.channels.SelectionKey.*;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -86,8 +87,6 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
     private final BitSet activeKeys = new BitSet(selectionKeysStore.length);
     private final long heartBeatIntervalMillis;
 
-    @Nullable
-    final List<Replica> channelList;
 
     private long largestEntrySoFar = 128;
 
@@ -109,6 +108,9 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
     private long selectorTimeout;
 
     StatelessClientParameters<K, V> statelessClientParameters;
+
+    private Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier;
+    private List<Replica> channelList;
 
     static class StatelessClientParameters<K, V> {
         public StatelessClientParameters(VanillaChronicleMap<K, ?, ?, V, ?, ?> map,
@@ -133,7 +135,8 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
                          @Nullable final RemoteNodeValidator remoteNodeValidator,
                          @Nullable final StatelessClientParameters statelessClientParameters,
                          String name,
-                         @Nullable final List<Replica> channelList)
+                         @Nullable final List<Replica> channelList,
+                         @NotNull Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier)
             throws IOException {
 
         super("TcpSocketReplicator-" + replica.identifier(), replicationConfig.throttlingConfig());
@@ -141,6 +144,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
         this.statelessClientParameters = statelessClientParameters;
         this.channelList = channelList;
 
+        this.statelessWiredConnectorSupplier = statelessWiredConnectorSupplier;
         final ThrottlingConfig throttlingConfig = replicationConfig.throttlingConfig();
         long throttleBucketInterval = throttlingConfig.bucketInterval(MILLISECONDS);
 
@@ -156,6 +160,8 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
 
         this.remoteNodeValidator = remoteNodeValidator;
         this.name = name;
+
+
         start();
     }
 
@@ -810,7 +816,16 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
             if (b == WIRED_CONNECTION)
                 attached.useWire = true;
             forceRead = true;
-            attached.statelessWiredConnector = new StatelessWiredConnector(channelList, localIdentifier);
+
+            attached.statelessWiredConnector = statelessWiredConnectorSupplier.get();
+
+            if (attached.statelessWiredConnector != null) {
+                attached.statelessWiredConnector.localIdentifier(localIdentifier);
+                attached.statelessWiredConnector.setChannelList(channelList);
+            } else {
+                LOG.error("", new RuntimeException("statelessWiredConnector not set up"));
+            }
+
             attached.handShakingComplete = true;
         }
 
@@ -1411,26 +1426,6 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
          * @throws InterruptedException
          */
         void entriesFromBuffer(@NotNull Attached attached, @NotNull SelectionKey key) {
-/*
-            if (attached.useWire) {
-
-                if (out.remaining() >= 4) {
-                    int size = out.readInt(out.position());
-                    if (out.remaining() >= size) {
-
-                        long end = out.position() + size;
-
-                        try {
-                            out.skip(4); // for the size
-                            wiredStatelessServer.processStatelessEvent(out, attached.entryWriter);
-                        } finally {
-                            out.position(end);
-                        }
-
-                    }
-                }
-                return;
-            }*/
 
             int entriesRead = 0;
             try {
