@@ -44,7 +44,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
 
     private static final Logger LOG = LoggerFactory.getLogger(WiredStatelessChronicleMap.class);
 
-
     // todo replace with an ENUM
     public static final String METHOD_NAME = "METHOD_NAME";
     public static final String RESULT_IS_NULL = "RESULT_IS_NULL";
@@ -52,7 +51,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     public static final String RESULT = "RESULT";
     public static final String ARG_1 = "ARG_1";
     public static final String ARG_2 = "ARG_2";
-
 
     private final WiredStatelessClientTcpConnectionHub hub;
 
@@ -270,14 +268,12 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         return proxyReturnObject(vClass, removeReturnsNull ? REMOVE_WITHOUT_ACC.toString() : REMOVE.toString(), (K) key);
     }
 
-    @NotNull
     public void createChannel(short channelID) {
         proxyReturnVoid(() -> {
             writeField(METHOD_NAME, "CREATE_CHANNEL");
             hub.outWire().write(() -> "ARG_1").int16(channelID);
         });
     }
-
 
     public void putAll(@NotNull Map<? extends K, ? extends V> map) {
 
@@ -376,9 +372,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
                     result.add(k);
                 } else
                     break;
-
-
-                //  return result;
 
             } finally {
                 hub.inBytesLock().unlock();
@@ -479,7 +472,17 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         assert hub.outBytesLock().isHeldByCurrentThread();
         assert !hub.inBytesLock().isHeldByCurrentThread();
 
-        if (value instanceof CharSequence) {
+        if (value instanceof Byte)
+            wire.write(() -> fieldName).int8((Byte) value);
+        else if (value instanceof Character)
+            wire.write(() -> fieldName).text(((Character) value).toString());
+        else if (value instanceof Short)
+            wire.write(() -> fieldName).int16((Short) value);
+        else if (value instanceof Integer)
+            wire.write(() -> fieldName).int32((Integer) value);
+        else if (value instanceof Long)
+            wire.write(() -> fieldName).int64((Long) value);
+        else if (value instanceof CharSequence) {
             wire.write(() -> fieldName).text((CharSequence) value);
         } else if (value instanceof Marshallable) {
             wire.write(() -> fieldName).marshallable((Marshallable) value);
@@ -720,8 +723,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
 
         return readInt(transactionId, startTime);
     }
-
-
 
 
     @Nullable

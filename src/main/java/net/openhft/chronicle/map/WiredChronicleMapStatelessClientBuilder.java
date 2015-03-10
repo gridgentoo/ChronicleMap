@@ -47,6 +47,13 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
         this.channelID = channelID;
     }
 
+    public WiredChronicleMapStatelessClientBuilder(WiredStatelessClientTcpConnectionHub hub, Class keyClass, Class valueClass, short channelID) {
+        this.keyClass = keyClass;
+        this.valueClass = valueClass;
+
+        this.channelID = channelID;
+    }
+
     // This method is meaningful, despite you could call of().create(), because Java 7 doesn't
     // infer type parameters if case of chained calls, like this; and then you couldn't omit class
     // name. Then it is
@@ -56,8 +63,7 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
     // -- the second is really shorter.
 
 
-
-    private final InetSocketAddress remoteAddress;
+    private InetSocketAddress remoteAddress;
     private boolean putReturnsNull = false;
     private boolean removeReturnsNull = false;
     private long timeoutMs = TimeUnit.SECONDS.toMillis(10);
@@ -65,7 +71,6 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
     private int tcpBufferSize = (int) MemoryUnit.KILOBYTES.toBytes(64);
 
     private final AtomicBoolean used = new AtomicBoolean(false);
-
 
 
     InetSocketAddress remoteAddress() {
@@ -147,7 +152,6 @@ public final class WiredChronicleMapStatelessClientBuilder<K, V> implements
     public short channelID() {
         return channelID;
     }
-
 
 
     public WiredStatelessClientTcpConnectionHub hub() {

@@ -64,12 +64,13 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     @NotNull
     private final OutMessageAdapter outMessageAdapter = new OutMessageAdapter();
+
     @NotNull
     private final ArrayList<BytesChronicleMap> bytesChronicleMaps = new ArrayList<>();
 
     private final TextWire inWire = new TextWire(Bytes.elasticByteBuffer());
     private final TextWire outWire = new TextWire(Bytes.elasticByteBuffer());
-    //private final ByteBuffer resultBuffer = ByteBuffer.allocateDirect(64);
+
     @NotNull
     private final ByteBuffer inLanByteBuffer = ByteBuffer.allocateDirect(64);
     private final StringBuilder methodName = new StringBuilder();
@@ -80,7 +81,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     private long timestamp;
     private short channelId;
-    @NotNull
     private List<Replica> channelList;
     private ReplicationHub hub;
 
@@ -108,8 +108,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         }
     };
 
-    private Runnable in = null;
-
     private byte remoteIdentifier;
     private byte localIdentifer;
     private Runnable out = null;
@@ -123,10 +121,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private SelectionKey key;
 
     public void setChannelList(@NotNull List<Replica> channelList) {
-        if (channelList == null)
-            throw new IllegalStateException("The StatelessWiredConnector currently only support maps " +
-                    "that are set up via the replication channel. localIdentifier=" + localIdentifier);
-
         this.channelList = channelList;
     }
 
@@ -346,7 +340,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 return;
             }
 
-
             // write the transaction id
             outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
 
@@ -445,7 +438,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             if ("TO_STRING".contentEquals(methodName)) {
                 write(b -> outWire.write(() -> "RESULT").text(b.toString()));
-
                 return;
             }
 
@@ -467,11 +459,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
 
             throw new IllegalStateException("unsupported event=" + methodName);
-
-            //  else if ("MAP_FOR_KEY".contentEquals(methodName)
-            // else if ("PUT_MAPPED".contentEquals(methodName))
-            //  else if ("VALUE_BUILDER".contentEquals(methodName))
-
 
         } finally {
 
