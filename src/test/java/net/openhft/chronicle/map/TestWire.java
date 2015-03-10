@@ -62,9 +62,7 @@ public class TestWire {
             map1a = of(byte[].class, byte[].class)
                     .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
 
-
             byte identifier = (byte) 2;
-
 
             final WiredChronicleMapStatelessClientBuilder<String, Details> builder =
                     new WiredChronicleMapStatelessClientBuilder<>(
@@ -76,7 +74,6 @@ public class TestWire {
             builder.identifier(identifier);
             final ChronicleMap<String, Details> detailsMap = builder.create();
 
-
             Details details = detailsMap.get("Colours");
 
             // todo add some sort of cross node locking
@@ -86,7 +83,6 @@ public class TestWire {
                 details = new Details(String.class, String.class, channelID);
                 detailsMap.put("Colours", details);
             }
-
 
             ChronicleMap<String, String> colours = new WiredChronicleMapStatelessClientBuilder<String, String>(
                     builder.hub(),
@@ -121,8 +117,6 @@ public class TestWire {
             // this is how you add maps after the custer is created
             map1a = of(byte[].class, byte[].class)
                     .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
-
-
             byte identifier = (byte) 2;
 
             final WiredChronicleMapStatelessClientBuilder<String, String> builder =

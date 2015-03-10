@@ -62,7 +62,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     private static final Logger LOG = LoggerFactory.getLogger(StatelessWiredConnector.class);
 
-    public enum Fields implements WireKey {
+    static enum Fields implements WireKey {
         HAS_NEXT,
         TIME_STAMP,
         CHANNEL_ID,

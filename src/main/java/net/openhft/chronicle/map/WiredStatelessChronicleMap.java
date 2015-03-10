@@ -44,14 +44,6 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
 
     private static final Logger LOG = LoggerFactory.getLogger(WiredStatelessChronicleMap.class);
 
-    // todo replace with an ENUM
-    public static final String METHOD_NAME = "METHOD_NAME";
-    public static final String RESULT_IS_NULL = "RESULT_IS_NULL";
-    public static final String HAS_NEXT = "HAS_NEXT";
-    public static final String RESULT = "RESULT";
-    public static final String ARG_1 = "ARG_1";
-    public static final String ARG_2 = "ARG_2";
-
     private final WiredStatelessClientTcpConnectionHub hub;
 
     protected Class<K> kClass;
@@ -269,10 +261,11 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     }
 
     public void createChannel(short channelID) {
-        proxyReturnVoid(() -> {
-            writeField(METHOD_NAME, "CREATE_CHANNEL");
-            hub.outWire().write(() -> "ARG_1").int16(channelID);
-        });
+        proxyReturnVoid(
+                () -> {
+                    writeField(StatelessWiredConnector.Fields.METHOD_NAME, "CREATE_CHANNEL");
+                    hub.outWire().write(StatelessWiredConnector.Fields.ARG_1).int16(channelID);
+                });
     }
 
     public void putAll(@NotNull Map<? extends K, ? extends V> map) {
@@ -301,18 +294,18 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
                 hub.markSize(wire);
                 hub.startTime(startTime);
 
-                wire.write(() -> "TRANSACTION_ID").int64(transactionId);
-                wire.write(() -> "TIME_STAMP").int64(startTime);
-                wire.write(() -> "CHANNEL_ID").int16(channelID);
+                wire.write(StatelessWiredConnector.Fields.TRANSACTION_ID).int64(transactionId);
+                wire.write(StatelessWiredConnector.Fields.TIME_STAMP).int64(startTime);
+                wire.write(StatelessWiredConnector.Fields.CHANNEL_ID).int16(channelID);
 
-                writeField(METHOD_NAME, "PUT_ALL");
+                writeField(StatelessWiredConnector.Fields.METHOD_NAME, "PUT_ALL");
 
-                hub.outWire().write(() -> "HAS_NEXT").bool(hasNext);
+                hub.outWire().write(StatelessWiredConnector.Fields.HAS_NEXT).bool(hasNext);
 
                 if (hasNext) {
                     Map.Entry<? extends K, ? extends V> e = iterator.next();
-                    writeField(ARG_1, e.getKey());
-                    writeField(ARG_2, e.getValue());
+                    writeField(StatelessWiredConnector.Fields.ARG_1, e.getKey());
+                    writeField(StatelessWiredConnector.Fields.ARG_2, e.getValue());
                 }
 
                 hub.writeSocket(hub.outWire());
@@ -347,7 +340,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     }
 
     public void clear() {
-        proxyReturnVoid(() -> writeField(METHOD_NAME, CLEAR.toString()));
+        proxyReturnVoid(() -> writeField(StatelessWiredConnector.Fields.METHOD_NAME, CLEAR.toString()));
     }
 
 
@@ -367,8 +360,8 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
                 final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
 
 
-                if (wireIn.read(() -> HAS_NEXT).bool()) {
-                    K k = readK(RESULT, wireIn, null);
+                if (wireIn.read(StatelessWiredConnector.Fields.HAS_NEXT).bool()) {
+                    K k = readK(StatelessWiredConnector.Fields.RESULT, wireIn, null);
                     result.add(k);
                 } else
                     break;
@@ -397,8 +390,8 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
                 final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
 
 
-                if (wireIn.read(() -> HAS_NEXT).bool()) {
-                    V v = readV(RESULT, wireIn, null);
+                if (wireIn.read(StatelessWiredConnector.Fields.HAS_NEXT).bool()) {
+                    V v = readV(StatelessWiredConnector.Fields.RESULT, wireIn, null);
                     result.add(v);
                 } else
                     break;
@@ -427,10 +420,10 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
             try {
                 final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
 
-                if (wireIn.read(() -> HAS_NEXT).bool()) {
+                if (wireIn.read(StatelessWiredConnector.Fields.HAS_NEXT).bool()) {
                     result.put(
-                            readK("RESULT_KEY", wireIn, null),
-                            readV("RESULT_VALUE", wireIn, null));
+                            readK(StatelessWiredConnector.Fields.RESULT_KEY, wireIn, null),
+                            readV(StatelessWiredConnector.Fields.RESULT_VALUE, wireIn, null));
                 } else
                     break;
 
@@ -456,43 +449,43 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         // receive
         hub.inBytesLock().lock();
         try {
-            return hub.proxyReply(timeoutTime, transactionId).read(() -> RESULT).int64();
+            return hub.proxyReply(timeoutTime, transactionId).read(StatelessWiredConnector.Fields.RESULT).int64();
         } finally {
             hub.inBytesLock().unlock();
         }
     }
 
 
-    private void writeField(String fieldName, Object value) {
+    private void writeField(StatelessWiredConnector.Fields fieldName, Object value) {
         writeField(fieldName, value, hub.outWire());
     }
 
-    private void writeField(String fieldName, Object value, Wire wire) {
+    private void writeField(StatelessWiredConnector.Fields fieldName, Object value, Wire wire) {
 
         assert hub.outBytesLock().isHeldByCurrentThread();
         assert !hub.inBytesLock().isHeldByCurrentThread();
 
         if (value instanceof Byte)
-            wire.write(() -> fieldName).int8((Byte) value);
+            wire.write(fieldName).int8((Byte) value);
         else if (value instanceof Character)
-            wire.write(() -> fieldName).text(((Character) value).toString());
+            wire.write(fieldName).text(((Character) value).toString());
         else if (value instanceof Short)
-            wire.write(() -> fieldName).int16((Short) value);
+            wire.write(fieldName).int16((Short) value);
         else if (value instanceof Integer)
-            wire.write(() -> fieldName).int32((Integer) value);
+            wire.write(fieldName).int32((Integer) value);
         else if (value instanceof Long)
-            wire.write(() -> fieldName).int64((Long) value);
+            wire.write(fieldName).int64((Long) value);
         else if (value instanceof CharSequence) {
-            wire.write(() -> fieldName).text((CharSequence) value);
+            wire.write(fieldName).text((CharSequence) value);
         } else if (value instanceof Marshallable) {
-            wire.write(() -> fieldName).marshallable((Marshallable) value);
+            wire.write(fieldName).marshallable((Marshallable) value);
         } else {
             throw new IllegalStateException("type=" + value.getClass() + " is unsupported, it must either be of type Marshallable or CharSequence");
         }
     }
 
 
-    private V readValue(String argName, long transactionId, long startTime, final V usingValue) {
+    private V readValue(StatelessWiredConnector.Fields argName, long transactionId, long startTime, final V usingValue) {
         assert !hub.outBytesLock().isHeldByCurrentThread();
         long timeoutTime = startTime + hub.timeoutMs;
 
@@ -501,7 +494,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
 
             final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
 
-            if (wireIn.read(() -> RESULT_IS_NULL).bool())
+            if (wireIn.read(StatelessWiredConnector.Fields.RESULT_IS_NULL).bool())
                 return null;
 
             return readV(argName, wireIn, usingValue);
@@ -511,54 +504,54 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         }
     }
 
-    private V readV(String argName, Wire wireIn, V usingValue) {
+    private V readV(StatelessWiredConnector.Fields argName, Wire wireIn, V usingValue) {
         if (StringBuilder.class.isAssignableFrom(vClass)) {
-            wireIn.read(() -> argName).text((StringBuilder) usingValue);
+            wireIn.read(argName).text((StringBuilder) usingValue);
             return usingValue;
         } else if (Marshallable.class.isAssignableFrom(vClass)) {
 
             if (usingValue == null)
                 try {
                     V v = vClass.newInstance();
-                    wireIn.read(() -> argName).marshallable((Marshallable) v);
+                    wireIn.read(argName).marshallable((Marshallable) v);
                     return v;
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
-            wireIn.read(() -> argName).marshallable((Marshallable) usingValue);
+            wireIn.read(argName).marshallable((Marshallable) usingValue);
             return usingValue;
 
         } else if (String.class.isAssignableFrom(vClass)) {
             //noinspection unchecked
-            return (V) wireIn.read(() -> argName).text();
+            return (V) wireIn.read(argName).text();
 
         } else {
             throw new IllegalStateException("unsupported type");
         }
     }
 
-    private K readK(String argName, Wire wireIn, K usingValue) {
+    private K readK(StatelessWiredConnector.Fields argName, Wire wireIn, K usingValue) {
         if (StringBuilder.class.isAssignableFrom(kClass)) {
-            wireIn.read(() -> argName).text((StringBuilder) usingValue);
+            wireIn.read(argName).text((StringBuilder) usingValue);
             return usingValue;
         } else if (Marshallable.class.isAssignableFrom(kClass)) {
 
             if (usingValue == null)
                 try {
                     K v = kClass.newInstance();
-                    wireIn.read(() -> argName).marshallable((Marshallable) v);
+                    wireIn.read(argName).marshallable((Marshallable) v);
                     return v;
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
 
-            wireIn.read(() -> argName).marshallable((Marshallable) usingValue);
+            wireIn.read(argName).marshallable((Marshallable) usingValue);
             return usingValue;
 
         } else if (String.class.isAssignableFrom(vClass)) {
             //noinspection unchecked
-            return (K) wireIn.read(() -> argName).text();
+            return (K) wireIn.read(argName).text();
 
         } else {
             throw new IllegalStateException("unsupported type");
@@ -574,7 +567,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.inBytesLock().lock();
         try {
             final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
-            return wireIn.read(() -> RESULT).bool();
+            return wireIn.read(StatelessWiredConnector.Fields.RESULT).bool();
         } finally {
             hub.inBytesLock().unlock();
         }
@@ -589,7 +582,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.inBytesLock().lock();
         try {
             final Wire wireIn = hub.proxyReply(timeoutTime, transactionId);
-            return wireIn.read(() -> RESULT).int32();
+            return wireIn.read(StatelessWiredConnector.Fields.RESULT).int32();
         } finally {
             hub.inBytesLock().unlock();
         }
@@ -604,9 +597,9 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
-            writeField(ARG_1, key);
-            writeField(ARG_2, value);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.ARG_1, key);
+            writeField(StatelessWiredConnector.Fields.ARG_2, value);
 
             hub.writeSocket(hub.outWire());
         } finally {
@@ -625,9 +618,9 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
-            writeField(ARG_1, value1);
-            writeField(ARG_2, value2);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.ARG_1, value1);
+            writeField(StatelessWiredConnector.Fields.ARG_2, value2);
             hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
@@ -659,7 +652,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
             hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
@@ -677,7 +670,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
             hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
@@ -715,7 +708,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
             hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
@@ -737,9 +730,9 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
             assert !hub.inBytesLock().isHeldByCurrentThread();
 
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
-            writeField(ARG_1, key);
-            writeField(ARG_2, value);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.ARG_1, key);
+            writeField(StatelessWiredConnector.Fields.ARG_2, value);
             hub.writeSocket(hub.outWire());
 
         } finally {
@@ -750,7 +743,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
             return null;
 
         if (resultType == vClass)
-            return (R) readValue(RESULT, transactionId, startTime, null);
+            return (R) readValue(StatelessWiredConnector.Fields.RESULT, transactionId, startTime, null);
 
         else
             throw new UnsupportedOperationException("class of type class=" + resultType + " is not " +
@@ -769,7 +762,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
             return null;
 
         if (rClass == vClass)
-            return (R) readValue(RESULT, transactionId, startTime, null);
+            return (R) readValue(StatelessWiredConnector.Fields.RESULT, transactionId, startTime, null);
         else
             throw new UnsupportedOperationException("class of type class=" + rClass + " is not " +
                     "supported");
@@ -780,8 +773,8 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
-            writeField(ARG_1, arg1);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.ARG_1, arg1);
             hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
@@ -795,7 +788,7 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
         hub.outBytesLock().lock();
         try {
             transactionId = hub.writeHeader(startTime, channelID, hub.outWire());
-            writeField(METHOD_NAME, methodName);
+            writeField(StatelessWiredConnector.Fields.METHOD_NAME, methodName);
             hub.writeSocket(hub.outWire());
         } finally {
             hub.outBytesLock().unlock();
