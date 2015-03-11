@@ -54,7 +54,7 @@ abstract class AbstractChannelReplicator implements Closeable {
 
     public static final int BITS_IN_A_BYTE = 8;
 
-    public static final int SIZE_OF_SIZE = 4;
+    public static final int SIZE_OF_SIZE = 2;
     public static final int SIZE_OF_TRANSACTION_ID = 8;
     public static final int SIZE_OF_TIME_SHIFT = 2;
 

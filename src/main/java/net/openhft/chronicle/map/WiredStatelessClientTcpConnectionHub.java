@@ -314,7 +314,7 @@ public class WiredStatelessClientTcpConnectionHub {
         long pos = outWire.bytes().position();
         try {
             outWire.bytes().reset();
-            outWire.bytes().writeInt((int) position);
+            outWire.bytes().writeUnsignedShort((int) position);
         } finally {
             outWire.bytes().position(pos);
         }
@@ -369,7 +369,7 @@ public class WiredStatelessClientTcpConnectionHub {
                 // reads just the size
                 readSocket(SIZE_OF_SIZE, timeoutTime);
 
-                final int messageSize = intWire.bytes().readInt(intWire.bytes().position());
+                final int messageSize = intWire.bytes().readUnsignedShort(intWire.bytes().position());
 
 
                 assert messageSize > 0 : "Invalid message size " + messageSize;
@@ -657,8 +657,8 @@ public class WiredStatelessClientTcpConnectionHub {
         // this is where the size will go
         outWire.bytes().mark();
 
-        // skip the 4 bytes for the size
-        outWire.bytes().skip(4);
+        // skip the 2 bytes for the size
+        outWire.bytes().skip(2);
     }
 
     void startTime(long startTime) {

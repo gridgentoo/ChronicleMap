@@ -55,6 +55,7 @@ import java.util.function.Function;
 
 import static java.nio.channels.SelectionKey.OP_READ;
 import static java.nio.channels.SelectionKey.OP_WRITE;
+import static net.openhft.chronicle.map.AbstractChannelReplicator.SIZE_OF_SIZE;
 
 /**
  * @author Rob Austin.
@@ -243,7 +244,7 @@ public class StatelessWiredConnector<K extends BytesMarshallable, V extends Byte
     }
 
     private void processMessage() {
-        while (inWire.bytes().remaining() > 4) {
+        while (inWire.bytes().remaining() > SIZE_OF_SIZE) {
 
             final long limit = inWire.bytes().limit();
 
@@ -307,11 +308,13 @@ public class StatelessWiredConnector<K extends BytesMarshallable, V extends Byte
 
     @Nullable
     private Wire nextWireMessage() {
-        if (inWire.bytes().remaining() < 4)
+        if (inWire.bytes().remaining() < SIZE_OF_SIZE)
             return null;
 
         final Bytes<?> bytes = inWire.bytes();
-        int size = bytes.readInt(bytes.position());
+
+        // the size of the next wire message
+        int size = bytes.readUnsignedShort(bytes.position());
 
         inWire.bytes().ensureCapacity(bytes.position() + size);
 
@@ -323,7 +326,7 @@ public class StatelessWiredConnector<K extends BytesMarshallable, V extends Byte
         inWire.bytes().limit(bytes.position() + size);
 
         // skip the size
-        inWire.bytes().skip(4);
+        inWire.bytes().skip(SIZE_OF_SIZE);
 
         return inWire;
     }
