@@ -136,7 +136,7 @@ final class TcpReplicator<K, V> extends AbstractChannelReplicator implements Clo
                          @Nullable final StatelessClientParameters statelessClientParameters,
                          String name,
                          @Nullable final List<Replica> channelList,
-                         @NotNull Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier)
+                         @Nullable Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier)
             throws IOException {
 
         super("TcpSocketReplicator-" + replica.identifier(), replicationConfig.throttlingConfig());

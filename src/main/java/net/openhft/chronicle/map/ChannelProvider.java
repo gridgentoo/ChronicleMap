@@ -54,7 +54,7 @@ final class ChannelProvider implements Closeable {
 
     static final Map<ReplicationHub, ChannelProvider> implMapping = new IdentityHashMap<>();
 
-    static synchronized ChannelProvider getProvider(ReplicationHub hub,
+    static synchronized ChannelProvider   getProvider(ReplicationHub hub,
                                                     Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException {
         ChannelProvider channelProvider = implMapping.get(hub);
         if (channelProvider != null)
@@ -272,7 +272,7 @@ final class ChannelProvider implements Closeable {
     private final Replica[] chronicleChannels;
 
 
-    private List<Replica> chronicleChannelList() {
+    List<Replica> chronicleChannelList() {
         return Collections.unmodifiableList(chronicleChannelList);
     }
 

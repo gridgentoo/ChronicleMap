@@ -27,6 +27,7 @@ import net.openhft.chronicle.bytes.BytesMarshallable;
 import net.openhft.chronicle.hash.ChronicleHashInstanceBuilder;
 import net.openhft.chronicle.hash.impl.util.BuildVersion;
 import net.openhft.chronicle.hash.replication.ReplicationHub;
+import net.openhft.chronicle.network2.TcpHandler;
 import net.openhft.chronicle.wire.TextWire;
 import net.openhft.chronicle.wire.ValueIn;
 import net.openhft.chronicle.wire.Wire;
@@ -58,9 +59,13 @@ import static java.nio.channels.SelectionKey.OP_WRITE;
 /**
  * @author Rob Austin.
  */
-class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarshallable> {
+public class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarshallable> implements TcpHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(StatelessWiredConnector.class);
+
+    private final Wire inWire = new TextWire(Bytes.elasticByteBuffer());
+    boolean usingTcpReplicator = false;
+    private Wire outWire = new TextWire(Bytes.elasticByteBuffer());
 
     static enum Fields implements WireKey {
         HAS_NEXT,
@@ -87,8 +92,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     @NotNull
     private final ArrayList<BytesChronicleMap> bytesChronicleMaps = new ArrayList<>();
 
-    private final TextWire inWire = new TextWire(Bytes.elasticByteBuffer());
-    private final TextWire outWire = new TextWire(Bytes.elasticByteBuffer());
 
     @NotNull
     private final ByteBuffer inLanByteBuffer = ByteBuffer.allocateDirect(64);
@@ -96,7 +99,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private final ChronicleHashInstanceBuilder<ChronicleMap<K, V>> chronicleHashInstanceBuilder;
 
     private byte localIdentifier;
-
 
     private long timestamp;
     private short channelId;
@@ -128,8 +130,18 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     };
 
     private byte remoteIdentifier;
-    private byte localIdentifer;
+    private boolean hasEatenFirstByte = false;
     private Runnable out = null;
+    private SelectionKey key = null;
+
+    public StatelessWiredConnector(@NotNull final ChronicleHashInstanceBuilder<ChronicleMap<K, V>> chronicleHashInstanceBuilder,
+                                   @NotNull final ReplicationHub hub,
+                                   byte localIdentifier,
+                                   @NotNull final List<Replica> channelList) {
+        this(chronicleHashInstanceBuilder, hub);
+        this.channelList = channelList;
+        this.localIdentifier = localIdentifier;
+    }
 
 
     public StatelessWiredConnector(ChronicleHashInstanceBuilder<ChronicleMap<K, V>> chronicleHashInstanceBuilder, ReplicationHub hub) {
@@ -137,7 +149,37 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         this.hub = hub;
     }
 
-    private SelectionKey key;
+    @Override
+    public void process(Bytes in, Bytes out) {
+        this.inWire.bytes().clear().write(in);
+        this.inWire.bytes().flip();
+
+        this.outWire = new TextWire(out);
+
+
+        if (inWire.bytes().remaining() > 0) {
+
+            // we will skip the first byte as this is used by the TCP Replicator
+            if (!hasEatenFirstByte) {
+                inWire.bytes().readByte();
+                hasEatenFirstByte = true;
+                if (inWire.bytes().remaining() > 0) {
+                    System.out.println("server read:\n" + Bytes.toDebugString(inWire.bytes()));
+                    processMessage();
+                    return;
+                }
+            }
+
+            System.out.println("server read:\n" + Bytes.toDebugString(inWire.bytes()));
+            processMessage();
+
+
+        }
+
+        //    if (inWire.bytes().position() > 0)
+        //      processMessage();
+
+    }
 
     public void setChannelList(@NotNull List<Replica> channelList) {
         this.channelList = channelList;
@@ -185,8 +227,9 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     }
 
-    public int onRead(@NotNull SocketChannel socketChannel, SelectionKey key) throws IOException {
 
+    public int onRead(@NotNull SocketChannel socketChannel, SelectionKey key) throws IOException {
+        usingTcpReplicator = true;
 
         this.key = key;
 
@@ -195,7 +238,11 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         if (len == -1 || len == 0)
             return len;
 
+        processMessage();
+        return len;
+    }
 
+    private void processMessage() {
         while (inWire.bytes().remaining() > 4) {
 
             final long limit = inWire.bytes().limit();
@@ -205,7 +252,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                     compactInBuffer();
                 else if (shouldClearInBuffer())
                     clearInBuffer();
-                return len;
+                return;
             }
 
             long nextPosition = inWire.bytes().limit();
@@ -216,7 +263,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 inWire.bytes().limit(limit);
             }
         }
-        return len;
+
     }
 
     private void clearInBuffer() {
@@ -401,15 +448,22 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             }
 
             if ("GET".contentEquals(methodName)) {
-                writeValue(b -> b.get(toReader(inWire, Fields.ARG_1)));
+
+                writeValueUsingDelegate(map -> {
+                    byte[] key1 = this.toByteArray(inWire, Fields.ARG_1);
+                    return map.get(key1);
+                });
+
                 return;
+
             }
 
             if ("PUT".contentEquals(methodName)) {
-                writeValue(bytesMap -> {
+                writeValue(b -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
-                    bytesMap.put(reader, reader, timestamp, identifier());
+                    return b.put(reader, reader, timestamp, identifier());
                 });
+
                 return;
             }
 
@@ -426,31 +480,33 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             if ("REPLACE".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
-                    bytesMap.replace(reader, reader);
+                    return bytesMap.replace(reader, reader);
                 });
                 return;
             }
 
             if ("REPLACE_WITH_OLD_AND_NEW_VALUE".contentEquals(methodName)) {
+
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2, Fields.ARG_3);
-                    bytesMap.replace(reader, reader, reader);
+                    return bytesMap.replace(reader, reader);
                 });
+
                 return;
             }
 
             if ("PUT_IF_ABSENT".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
-                    bytesMap.putIfAbsent(reader, reader, timestamp, identifier());
+                    return bytesMap.putIfAbsent(reader, reader, timestamp, identifier());
                 });
                 return;
             }
 
             if ("REMOVE_WITH_VALUE".contentEquals(methodName)) {
-                writeValue(bytesMap -> {
+                write(bytesMap -> {
                     final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
-                    bytesMap.remove(reader, reader, timestamp, identifier());
+                    outWire.write(Fields.RESULT).bool(bytesMap.remove(reader, reader, timestamp, identifier()));
                 });
                 return;
             }
@@ -494,6 +550,19 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         }
 
 
+    }
+
+
+    private byte[] toByteArray(net.openhft.lang.io.Bytes bytes) {
+        if (bytes == null || bytes.remaining() == 0)
+            return new byte[]{};
+
+        if (bytes.remaining() > Integer.MAX_VALUE)
+            throw new BufferOverflowException();
+
+        byte[] result = new byte[(int) bytes.remaining()];
+        bytes.write(result);
+        return result;
     }
 
     private byte[] toBytes(WireKey fieldName) {
@@ -574,7 +643,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     private byte identifier() {
         // if the client provides a remote identifier then we will use that otherwise we will use the local identifier
-        return remoteIdentifier == 0 ? localIdentifer : remoteIdentifier;
+        return remoteIdentifier == 0 ? localIdentifier : remoteIdentifier;
     }
 
     @NotNull
@@ -638,6 +707,48 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
 
     /**
+     * creates a lang buffer that holds just the payload of the args
+     *
+     * @param wire the inbound wire
+     * @return a new lang buffer containing the bytes of the args
+     */
+
+    // todo remove this method - just added to get it to work for now
+    private byte[] toByteArray(@NotNull Wire wire, @NotNull WireKey field) {
+
+        long inSize = wire.bytes().limit();
+        // final net.openhft.lang.io.Bytes bytes = DirectStore.allocate(inSize).bytes();
+
+
+        ValueIn read = wire.read(field);
+        long fieldLength = read.readLength();
+
+        long endPos = wire.bytes().position() + fieldLength;
+        long limit = wire.bytes().limit();
+        byte[] result = new byte[]{};
+        try {
+
+            final Bytes source = wire.bytes();
+            source.limit(endPos);
+
+            if (source.remaining() > Integer.MAX_VALUE)
+                throw new BufferOverflowException();
+
+            // write the size
+            result = new byte[(int) source.remaining()];
+            source.read(result);
+
+
+        } finally {
+            wire.bytes().position(endPos);
+            wire.bytes().limit(limit);
+        }
+
+
+        return result;
+    }
+
+    /**
      * gets the map for this channel id
      *
      * @param channelId the ID of the map
@@ -686,7 +797,52 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
 
     @SuppressWarnings("SameReturnValue")
-    private void writeValue(@NotNull Consumer<BytesChronicleMap> process) {
+    private void writeValue(final Function<BytesChronicleMap, net.openhft.lang.io.Bytes> f) {
+
+        write(b -> {
+
+            byte[] fromBytes = toByteArray(f.apply(b));
+            boolean isNull = fromBytes.length == 0;
+            outWire.write(Fields.RESULT_IS_NULL).bool(isNull);
+            if (isNull)
+                return;
+
+            outWire.write(Fields.RESULT);
+            outWire.bytes().write(fromBytes);
+
+        });
+
+
+        nofityDataWritten();
+
+    }
+
+
+    @SuppressWarnings("SameReturnValue")
+    private void writeValueUsingDelegate(final Function<ChronicleMap<byte[], byte[]>, byte[]> f) {
+
+        write(b -> {
+
+            byte[] result = f.apply((ChronicleMap) b.delegate);
+            boolean isNull = result == null;
+
+            outWire.write(Fields.RESULT_IS_NULL).bool(isNull);
+            if (isNull)
+                return;
+
+            isNull = result.length == 0;
+
+            outWire.write(Fields.RESULT);
+            outWire.bytes().write(result);
+
+        });
+
+
+        nofityDataWritten();
+
+    }
+
+    private void writeValueTcpRep(@NotNull Consumer<BytesChronicleMap> process) {
 
         final BytesChronicleMap bytesMap = bytesMap(channelId);
 
@@ -717,7 +873,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         nofityDataWritten();
 
     }
-
 
     @SuppressWarnings("SameReturnValue")
     private void write(@NotNull Consumer<BytesChronicleMap> c) {
@@ -821,7 +976,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
     public void localIdentifier(byte localIdentifier) {
-        this.localIdentifer = localIdentifier;
+        this.localIdentifier = localIdentifier;
     }
 
 
@@ -927,6 +1082,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     }
 
     private void nofityDataWritten() {
+        if (key != null)
         key.interestOps(OP_WRITE | OP_READ);
     }
 

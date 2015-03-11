@@ -53,10 +53,10 @@ public class WiredStatelessChronicleMap<K, V> implements ChronicleMap<K, V>, Clo
     private boolean removeReturnsNull;
     private short channelID;
 
-    WiredStatelessChronicleMap(@NotNull final WiredChronicleMapStatelessClientBuilder config,
-                               @NotNull final Class kClass,
-                               @NotNull final Class vClass,
-                               short channelID) {
+    public WiredStatelessChronicleMap(@NotNull final WiredChronicleMapStatelessClientBuilder config,
+                                      @NotNull final Class kClass,
+                                      @NotNull final Class vClass,
+                                      short channelID) {
         this.channelID = channelID;
         hub = config.hub;
         this.putReturnsNull = config.putReturnsNull();
