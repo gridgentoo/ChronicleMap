@@ -30,6 +30,7 @@ import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.wire.TextWire;
 import net.openhft.chronicle.wire.ValueIn;
 import net.openhft.chronicle.wire.Wire;
+import net.openhft.chronicle.wire.WireKey;
 import net.openhft.lang.io.ByteBufferBytes;
 import net.openhft.lang.io.DirectStore;
 import net.openhft.lang.io.IByteBufferBytes;
@@ -60,16 +61,35 @@ import static java.nio.channels.SelectionKey.OP_WRITE;
 class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarshallable> {
 
     private static final Logger LOG = LoggerFactory.getLogger(StatelessWiredConnector.class);
+
+    static enum Fields implements WireKey {
+        HAS_NEXT,
+        TIME_STAMP,
+        CHANNEL_ID,
+        METHOD_NAME,
+        TRANSACTION_ID,
+        RESULT,
+        RESULT_KEY,
+        RESULT_VALUE,
+        ARG_1,
+        ARG_2,
+        ARG_3,
+        IS_EXCEPTION,
+        EXCEPTION,
+        RESULT_IS_NULL
+    }
+
     private final NativeBytes inLangBytes = new NativeBytes(0, 0);
 
     @NotNull
     private final OutMessageAdapter outMessageAdapter = new OutMessageAdapter();
+
     @NotNull
     private final ArrayList<BytesChronicleMap> bytesChronicleMaps = new ArrayList<>();
 
     private final TextWire inWire = new TextWire(Bytes.elasticByteBuffer());
     private final TextWire outWire = new TextWire(Bytes.elasticByteBuffer());
-    //private final ByteBuffer resultBuffer = ByteBuffer.allocateDirect(64);
+
     @NotNull
     private final ByteBuffer inLanByteBuffer = ByteBuffer.allocateDirect(64);
     private final StringBuilder methodName = new StringBuilder();
@@ -80,7 +100,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     private long timestamp;
     private short channelId;
-    @NotNull
     private List<Replica> channelList;
     private ReplicationHub hub;
 
@@ -88,7 +107,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         @Override
         public void accept(Iterator<byte[]> iterator) {
-            outWire.write(() -> "RESULT");
+            outWire.write(Fields.RESULT);
             outWire.bytes().write(iterator.next());
         }
     };
@@ -100,15 +119,13 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             final Map.Entry<byte[], byte[]> entry = iterator.next();
 
-            outWire.write(() -> "RESULT_KEY");
+            outWire.write(Fields.RESULT_KEY);
             outWire.bytes().write(entry.getKey());
 
-            outWire.write(() -> "RESULT_VALUE");
+            outWire.write(Fields.RESULT_VALUE);
             outWire.bytes().write(entry.getValue());
         }
     };
-
-    private Runnable in = null;
 
     private byte remoteIdentifier;
     private byte localIdentifer;
@@ -123,10 +140,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     private SelectionKey key;
 
     public void setChannelList(@NotNull List<Replica> channelList) {
-        if (channelList == null)
-            throw new IllegalStateException("The StatelessWiredConnector currently only support maps " +
-                    "that are set up via the replication channel. localIdentifier=" + localIdentifier);
-
         this.channelList = channelList;
     }
 
@@ -283,12 +296,12 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
         out = () -> {
 
             // each chunk has its own transaction-id
-            outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+            outWire.write(Fields.TRANSACTION_ID).int64(transactionId);
 
             write(map -> {
 
                 boolean hasNext = iterator.hasNext();
-                outWire.write(() -> "HAS_NEXT").bool(hasNext);
+                outWire.write(Fields.HAS_NEXT).bool(hasNext);
 
                 if (hasNext)
                     c.accept(iterator);
@@ -307,14 +320,14 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
     void onEvent() {
 
         // it is assumed by this point that the buffer has all the bytes in it for this message
-        long transactionId = inWire.read(() -> "TRANSACTION_ID").int64();
-        timestamp = inWire.read(() -> "TIME_STAMP").int64();
-        channelId = inWire.read(() -> "CHANNEL_ID").int16();
-        inWire.read(() -> "METHOD_NAME").text(methodName);
+        long transactionId = inWire.read(Fields.TRANSACTION_ID).int64();
+        timestamp = inWire.read(Fields.TIME_STAMP).int64();
+        channelId = inWire.read(Fields.CHANNEL_ID).int16();
+        inWire.read(Fields.METHOD_NAME).text(methodName);
 
         if ("PUT_WITHOUT_ACC".contentEquals(methodName)) {
             writeVoid(bytesMap -> {
-                final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
+                final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
                 bytesMap.put(reader, reader, timestamp, identifier());
             });
             return;
@@ -346,14 +359,13 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
                 return;
             }
 
-
             // write the transaction id
             outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
 
             if ("CREATE_CHANNEL".contentEquals(methodName)) {
 
                 writeVoid(() -> {
-                    short channelId1 = inWire.read(() -> "ARG_1").int16();
+                    short channelId1 = inWire.read(Fields.ARG_1).int16();
                     chronicleHashInstanceBuilder.replicatedViaChannel(hub.createChannel(channelId1)).create();
                     return null;
                 });
@@ -362,47 +374,47 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
 
             if ("REMOTE_IDENTIFIER".contentEquals(methodName)) {
-                this.remoteIdentifier = inWire.read(() -> "RESULT").int8();
+                this.remoteIdentifier = inWire.read(Fields.RESULT).int8();
                 return;
             }
 
             if ("LONG_SIZE".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").int64(b.longSize()));
+                write(b -> outWire.write(Fields.RESULT).int64(b.longSize()));
                 return;
             }
 
             if ("IS_EMPTY".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").bool(b.isEmpty()));
+                write(b -> outWire.write(Fields.RESULT).bool(b.isEmpty()));
                 return;
             }
 
             if ("CONTAINS_KEY".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").
-                        bool(b.containsKey(toReader(inWire, "ARG_1"))));
+                write(b -> outWire.write(Fields.RESULT).
+                        bool(b.containsKey(toReader(inWire, Fields.ARG_1))));
                 return;
             }
 
             if ("CONTAINS_VALUE".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").
-                        bool(b.containsKey(toReader(inWire, "ARG_1"))));
+                write(b -> outWire.write(Fields.RESULT).
+                        bool(b.containsKey(toReader(inWire, Fields.ARG_1))));
                 return;
             }
 
             if ("GET".contentEquals(methodName)) {
-                writeValue(b -> b.get(toReader(inWire, "ARG_1")));
+                writeValue(b -> b.get(toReader(inWire, Fields.ARG_1)));
                 return;
             }
 
             if ("PUT".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
-                    final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
+                    final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
                     bytesMap.put(reader, reader, timestamp, identifier());
                 });
                 return;
             }
 
             if ("REMOVE".contentEquals(methodName)) {
-                writeValue(b -> b.remove(toReader(inWire, "ARG_1")));
+                writeValue(b -> b.remove(toReader(inWire, Fields.ARG_1)));
                 return;
             }
 
@@ -413,7 +425,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             if ("REPLACE".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
-                    final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
+                    final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
                     bytesMap.replace(reader, reader);
                 });
                 return;
@@ -421,7 +433,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             if ("REPLACE_WITH_OLD_AND_NEW_VALUE".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
-                    final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2", "ARG_3");
+                    final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2, Fields.ARG_3);
                     bytesMap.replace(reader, reader, reader);
                 });
                 return;
@@ -429,7 +441,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             if ("PUT_IF_ABSENT".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
-                    final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
+                    final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
                     bytesMap.putIfAbsent(reader, reader, timestamp, identifier());
                 });
                 return;
@@ -437,41 +449,34 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             if ("REMOVE_WITH_VALUE".contentEquals(methodName)) {
                 writeValue(bytesMap -> {
-                    final net.openhft.lang.io.Bytes reader = toReader(inWire, "ARG_1", "ARG_2");
+                    final net.openhft.lang.io.Bytes reader = toReader(inWire, Fields.ARG_1, Fields.ARG_2);
                     bytesMap.remove(reader, reader, timestamp, identifier());
                 });
                 return;
             }
 
             if ("TO_STRING".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").text(b.toString()));
-
+                write(b -> outWire.write(Fields.RESULT).text(b.toString()));
                 return;
             }
 
             if ("APPLICATION_VERSION".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").text(applicationVersion()));
+                write(b -> outWire.write(Fields.RESULT).text(applicationVersion()));
                 return;
             }
 
             if ("PERSISTED_DATA_VERSION".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").text(persistedDataVersion()));
+                write(b -> outWire.write(Fields.RESULT).text(persistedDataVersion()));
 
                 return;
             }
 
             if ("HASH_CODE".contentEquals(methodName)) {
-                write(b -> outWire.write(() -> "RESULT").int32(b.hashCode()));
+                write(b -> outWire.write(Fields.RESULT).int32(b.hashCode()));
                 return;
             }
 
-
             throw new IllegalStateException("unsupported event=" + methodName);
-
-            //  else if ("MAP_FOR_KEY".contentEquals(methodName)
-            // else if ("PUT_MAPPED".contentEquals(methodName))
-            //  else if ("VALUE_BUILDER".contentEquals(methodName))
-
 
         } finally {
 
@@ -491,10 +496,12 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
     }
 
-    private byte[] toBytes(String fieldName) {
+    private byte[] toBytes(WireKey fieldName) {
 
         Wire wire = inWire;
-        ValueIn read = wire.read(() -> fieldName);
+        System.out.println(Bytes.toDebugString(inWire.bytes()));
+
+        ValueIn read = wire.read(fieldName);
 
         long l = read.readLength();
         if (l > Integer.MAX_VALUE)
@@ -540,18 +547,18 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             @Override
             public void run() {
-                if (inWire.read(() -> "HAS_NEXT").bool()) {
-                    collectData.put(toBytes("ARG_1"), toBytes("ARG_2"));
+                if (inWire.read(Fields.HAS_NEXT).bool()) {
+                    collectData.put(toBytes(Fields.ARG_1), toBytes(Fields.ARG_2));
                 } else {
                     // the old code assumed that all the data would fit into a single buffer
                     // this assumption is invalid
                     if (!collectData.isEmpty()) {
                         bytesMap.delegate.putAll((Map) collectData);
                         incompleteWork.remove(transactionId);
-                        outWire.write(() -> "TRANSACTION_ID").int64(transactionId);
+                        outWire.write(Fields.TRANSACTION_ID).int64(transactionId);
 
                         // todo handle the case where there is an exception
-                        outWire.write(() -> "IS_EXCEPTION").bool(false);
+                        outWire.write(Fields.IS_EXCEPTION).bool(false);
 
                         nofityDataWritten();
                     }
@@ -590,15 +597,15 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
      * @param args the key names of the {@code wire} args
      * @return a new lang buffer containing the bytes of the args
      */
-    private net.openhft.lang.io.Bytes toReader(@NotNull Wire wire, @NotNull String... args) {
+    private net.openhft.lang.io.Bytes toReader(@NotNull Wire wire, @NotNull WireKey... args) {
 
         long inSize = wire.bytes().limit();
         final net.openhft.lang.io.Bytes bytes = DirectStore.allocate(inSize).bytes();
 
         // copy the bytes to the reader
-        for (final String field : args) {
+        for (final WireKey field : args) {
 
-            ValueIn read = wire.read(() -> field);
+            ValueIn read = wire.read(field);
             long fieldLength = read.readLength();
 
             long endPos = wire.bytes().position() + fieldLength;
@@ -638,7 +645,6 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
      */
     @NotNull
     private ReplicatedChronicleMap map(short channelId) {
-
 
         // todo this cast is a bit of a hack, improve later
         final ReplicatedChronicleMap replicas =
@@ -701,8 +707,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
             // the idea of wire is that is platform independent,
             // so we wil have to send the exception as a String
-            outWire.write(() -> "IS_EXCEPTION").bool(true);
-            outWire.write(() -> "EXCEPTION").text(toString(e));
+            outWire.write(Fields.IS_EXCEPTION).bool(true);
+            outWire.write(Fields.EXCEPTION).text(toString(e));
             LOG.error("", e);
             return;
         }
@@ -725,7 +731,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         bytesMap.output = null;
         outWire.bytes().mark();
-        outWire.write(() -> "IS_EXCEPTION").bool(false);
+        outWire.write(Fields.IS_EXCEPTION).bool(false);
 
         try {
             c.accept(bytesMap);
@@ -733,8 +739,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             outWire.bytes().reset();
             // the idea of wire is that is platform independent,
             // so we wil have to send the exception as a String
-            outWire.write(() -> "IS_EXCEPTION").bool(true);
-            outWire.write(() -> "EXCEPTION").text(toString(e));
+            outWire.write(Fields.IS_EXCEPTION).bool(true);
+            outWire.write(Fields.EXCEPTION).text(toString(e));
             LOG.error("", e);
             return;
         }
@@ -755,7 +761,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
 
         bytesMap.output = null;
         outWire.bytes().mark();
-        outWire.write(() -> "IS_EXCEPTION").bool(false);
+        outWire.write(Fields.IS_EXCEPTION).bool(false);
 
         try {
             r.call();
@@ -763,8 +769,8 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             outWire.bytes().reset();
             // the idea of wire is that is platform independent,
             // so we wil have to send the exception as a String
-            outWire.write(() -> "IS_EXCEPTION").bool(true);
-            outWire.write(() -> "EXCEPTION").text(toString(e));
+            outWire.write(Fields.IS_EXCEPTION).bool(true);
+            outWire.write(Fields.EXCEPTION).text(toString(e));
             LOG.error("", e);
             return;
         }
@@ -825,6 +831,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
      */
     private static class OutMessageAdapter {
 
+
         @NotNull
         private final IByteBufferBytes outLangBytes = ByteBufferBytes.wrap(ByteBuffer.allocate(1024));
         private Bytes outChronBytes = Bytes.wrap(outLangBytes.buffer());
@@ -881,7 +888,7 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
          */
         void accept(@NotNull Wire wire) {
 
-            wire.write(() -> "IS_EXCEPTION").bool(false);
+            wire.write(Fields.IS_EXCEPTION).bool(false);
 
             // flips calls flip on this message so that we can read it
             flipMessage();
@@ -896,10 +903,10 @@ class StatelessWiredConnector<K extends BytesMarshallable, V extends BytesMarsha
             // read the size - not used
             outChronBytes.readStopBit();
 
-            wire.write(() -> "RESULT_IS_NULL").bool(isNull);
+            wire.write(Fields.RESULT_IS_NULL).bool(isNull);
             if (!isNull) {
                 // write the result
-                wire.write(() -> "RESULT");
+                wire.write(Fields.RESULT);
                 wire.bytes().write(outChronBytes);
             }
         }

@@ -16,14 +16,15 @@
  * limitations under the License.
  */
 
-package net.openhft.chronicle.wire;
+package net.openhft.chronicle.map;
 
 
 import net.openhft.chronicle.hash.replication.ReplicationHub;
 import net.openhft.chronicle.hash.replication.TcpTransportAndNetworkConfig;
-import net.openhft.chronicle.map.ChronicleMap;
-import net.openhft.chronicle.map.WiredChronicleMapStatelessClientBuilder;
-import net.openhft.chronicle.map.WiredStatelessChronicleMap;
+import net.openhft.chronicle.wire.Marshallable;
+import net.openhft.chronicle.wire.WireIn;
+import net.openhft.chronicle.wire.WireOut;
+import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -39,12 +40,67 @@ import static org.junit.Assert.*;
  */
 public class TestWire {
 
-
     public static int SERVER_PORT = 8086;
     private ChronicleMap<byte[], byte[]> map1a;
     private ChronicleMap<byte[], byte[]> map2a;
     private ChronicleMap<byte[], byte[]> map3a;
     private ReplicationHub hubA;
+
+
+    @Test
+    public void testUsingDetails() throws IOException, InterruptedException {
+
+        {
+            final TcpTransportAndNetworkConfig tcpConfig = TcpTransportAndNetworkConfig
+                    .of(++SERVER_PORT)
+                    .heartBeatInterval(1, SECONDS);
+
+            hubA = ReplicationHub.builder().tcpTransportAndNetwork(tcpConfig)
+                    .createWithId((byte) 1);
+
+            // this is how you add maps after the custer is created
+            map1a = of(byte[].class, byte[].class)
+                    .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
+
+            byte identifier = (byte) 2;
+
+            final WiredChronicleMapStatelessClientBuilder<String, Details> builder =
+                    new WiredChronicleMapStatelessClientBuilder<>(
+                            new InetSocketAddress("localhost", SERVER_PORT),
+                            String.class,
+                            Details.class,
+                            (short) 1);
+
+            builder.identifier(identifier);
+            final ChronicleMap<String, Details> detailsMap = builder.create();
+
+            Details details = detailsMap.get("Colours");
+
+            // todo add some sort of cross node locking
+            if (details == null) {
+                short channelID = (short) 2;
+                ((WiredStatelessChronicleMap) detailsMap).createChannel(channelID);
+                details = new Details(String.class, String.class, channelID);
+                detailsMap.put("Colours", details);
+            }
+
+            ChronicleMap<String, String> colours = new WiredChronicleMapStatelessClientBuilder<String, String>(
+                    builder.hub(),
+                    details.keyClass,
+                    details.valueClass,
+                    details.channelID).hub(builder.hub()).create();
+
+            colours.put("Rob", "Blue");
+
+            assertEquals(1, colours.size());
+
+
+            Details result = detailsMap.get("Colours");
+            Assert.assertEquals(2, result.channelID);
+            map1a.close();
+        }
+
+    }
 
 
     @Test
@@ -61,8 +117,6 @@ public class TestWire {
             // this is how you add maps after the custer is created
             map1a = of(byte[].class, byte[].class)
                     .instance().replicatedViaChannel(hubA.createChannel((short) 1)).create();
-
-
             byte identifier = (byte) 2;
 
             final WiredChronicleMapStatelessClientBuilder<String, String> builder =
@@ -351,8 +405,8 @@ public class TestWire {
             Set<Map.Entry<String, String>> entries = statelessMap.entrySet();
 
             assertEquals(2, values.size());
-            assertTrue(entries.contains(Collections.singletonMap("Key1","Value1").entrySet().iterator().next()));
-            assertTrue(entries.contains(Collections.singletonMap("Key2","Value2").entrySet().iterator().next()));
+            assertTrue(entries.contains(Collections.singletonMap("Key1", "Value1").entrySet().iterator().next()));
+            assertTrue(entries.contains(Collections.singletonMap("Key2", "Value2").entrySet().iterator().next()));
 
 
             map1a.close();
@@ -418,6 +472,17 @@ public class TestWire {
         Class keyClass;
         Class valueClass;
         short channelID;
+
+
+        public Details() {
+        }
+
+
+        public Details(Class<String> keyClass, Class<String> valueClass, short channelID) {
+            this.keyClass = keyClass;
+            this.valueClass = valueClass;
+            this.channelID = channelID;
+        }
 
 
         @Override
