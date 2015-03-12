@@ -220,7 +220,7 @@ public class ClientWiredStatelessClientTcpConnectionHub {
      * @return a unique transactionId
      */
     long nextUniqueTransaction(long time) {
-        long id = time * TcpReplicator.TIMESTAMP_FACTOR;
+        long id = time;
         for (; ; ) {
             long old = transactionID.get();
             if (old >= id) id = old + 1;
