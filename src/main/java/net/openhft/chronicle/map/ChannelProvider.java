@@ -54,8 +54,7 @@ final class ChannelProvider implements Closeable {
 
     static final Map<ReplicationHub, ChannelProvider> implMapping = new IdentityHashMap<>();
 
-    static synchronized ChannelProvider   getProvider(ReplicationHub hub,
-                                                    Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException {
+    static synchronized ChannelProvider   getProvider(ReplicationHub hub ) throws IOException {
         ChannelProvider channelProvider = implMapping.get(hub);
         if (channelProvider != null)
             return channelProvider;
@@ -71,9 +70,7 @@ final class ChannelProvider implements Closeable {
                     tcpConfig,
                     hub.remoteNodeValidator(),
                     null,
-                    hub.name(),
-                    channelProvider.chronicleChannelList(),
-                    statelessWiredConnectorSupplier);
+                    hub.name());
 
             channelProvider.add(tcpReplicator);
         }
@@ -571,8 +568,8 @@ final class ChannelProvider implements Closeable {
         protected Closeable applyTo(ChronicleMapBuilder builder,
                                     Replica map,
                                     EntryExternalizable entryExternalizable,
-                                    ChronicleMap chronicleMap,
-                                    Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier) throws IOException {
+                                    ChronicleMap chronicleMap
+                                    ) throws IOException {
             add(chronicleChannel, map, entryExternalizable);
             return this;
         }

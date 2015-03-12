@@ -1461,19 +1461,15 @@ public final class ChronicleMapBuilder<K, V> implements
             } else {
                 final ReplicationHub hub = channel.hub();
 
-                Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier =
-                        () -> new StatelessWiredConnector(instance(), hub);
 
-                ChannelProvider provider = ChannelProvider.getProvider(hub, statelessWiredConnectorSupplier);
+                ChannelProvider provider = ChannelProvider.getProvider(hub);
                 ChannelProvider.ChronicleChannel ch = provider.createChannel(channel.channelId());
                 replicators.add(ch);
             }
             for (Replicator replicator : replicators) {
 
-                Supplier<? extends StatelessWiredConnector> statelessWiredConnectorSupplier =
-                        () -> new StatelessWiredConnector(instance(), channel.hub());
 
-                Closeable token = replicator.applyTo(this, result, result, map, statelessWiredConnectorSupplier);
+                Closeable token = replicator.applyTo(this, result, result, map );
                 if (replicators.size() == 1 && token.getClass() == UdpReplicator.class) {
                     LOG.warn(Replicators.ONLY_UDP_WARN_MESSAGE);
                 }
