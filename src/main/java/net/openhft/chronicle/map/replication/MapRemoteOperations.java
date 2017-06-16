@@ -141,6 +141,7 @@ public interface MapRemoteOperations<K, V, R> {
         if (entry != null) {
             if (decideOnRemoteModification(entry, q) == ACCEPT) {
                 q.replaceValue(entry, newValue);
+                System.out.printf("Map %d, replicating(%s, %s)%n", q.remoteNodeIdentifier(), q.queriedKey().get(), q.entry().value().get());
                 entry.updateOrigin(q.remoteIdentifier(), q.remoteTimestamp());
                 // For explanation see similar block in remove() method (*)
                 if (q.remoteIdentifier() == q.currentNodeIdentifier()) {

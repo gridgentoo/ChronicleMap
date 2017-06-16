@@ -43,7 +43,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Stream;
 
-import static net.openhft.chronicle.algo.MemoryUnit.*;
+import static net.openhft.chronicle.algo.MemoryUnit.BITS;
+import static net.openhft.chronicle.algo.MemoryUnit.BYTES;
+import static net.openhft.chronicle.algo.MemoryUnit.CACHE_LINES;
+import static net.openhft.chronicle.algo.MemoryUnit.LONGS;
 import static net.openhft.chronicle.algo.bitset.BitSetFrame.NOT_FOUND;
 import static net.openhft.chronicle.algo.bytes.Access.nativeAccess;
 import static net.openhft.chronicle.hash.replication.TimeProvider.currentTime;
@@ -475,8 +478,9 @@ public class ReplicatedChronicleMap<K, V, R> extends VanillaChronicleMap<K, V, R
             ReplicableEntry entry, Bytes payload, @NotNull Bytes destination, int chronicleId) {
         if (payload != null)
             writePayload(payload, destination);
-        if (entry != null)
+        if (entry != null) {
             writeExternalEntry0(entry, destination);
+        }
     }
 
     private void writePayload(Bytes payload, Bytes destination) {

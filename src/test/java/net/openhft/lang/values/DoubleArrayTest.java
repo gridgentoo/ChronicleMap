@@ -66,6 +66,7 @@ public class DoubleArrayTest {
         da.bytesStore().release();
     }
 
+    @Ignore
     @Test
     public void addToAMap() {
         DoubleArray a = new DoubleArray(10);
