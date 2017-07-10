@@ -66,7 +66,6 @@ public class DoubleArrayTest {
         da.bytesStore().release();
     }
 
-    @Ignore
     @Test
     public void addToAMap() {
         DoubleArray a = new DoubleArray(10);
@@ -77,6 +76,7 @@ public class DoubleArrayTest {
 
         ChronicleMap<Integer, DoubleArray> proxyMap = ChronicleMap
                 .of(Integer.class, DoubleArray.class)
+                .constantValueSizeBySample(a)
                 .entries(2)
                 .create();
         proxyMap.put(1, a);

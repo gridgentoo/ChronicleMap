@@ -2,9 +2,9 @@ package net.openhft.chronicle.map;
 
 import net.openhft.chronicle.bytes.Bytes;
 import net.openhft.chronicle.hash.replication.ReplicableEntry;
-import net.openhft.chronicle.map.impl.CompiledReplicatedMapIterationContext;
 import net.openhft.chronicle.map.impl.CompiledReplicatedMapQueryContext;
 import org.hamcrest.CoreMatchers;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.nio.ByteBuffer;
@@ -23,6 +23,7 @@ import static org.junit.Assert.assertThat;
 
 public class BasicReplicationTest {
 
+    @Ignore
     @Test
     public void shouldReplicate() throws Exception {
         final ChronicleMapBuilder<String, String> builder = ChronicleMap.of(String.class, String.class)
