@@ -1,0 +1,28 @@
+= Chronicle MAP
+Chronicle Map is an in-memory, key-value store, designed for low-latency, and/or multi-process
+applications such as trading and financial market applications.
+
+The Chronicle Map documentation comprises the following:
+
+* `ReadMe.adoc` - This file.
+* <<docs/CM_Overview.adoc#,CM_Overview.adoc>> - High level overview.
+* <<docs/CM_Features.adoc#,CM_Features.adoc>> - Features description.
+* <<docs/CM_Download.adoc#,CM_Download.adoc>> - Downloading the software.
+* <<docs/CM_Updates.adoc#,CM_Updates.adoc>> - Updates from Chronicle Map version 2.
+* <<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>> - Tutorial.
+* <<docs/CM_Versioning.adoc#,CM_Versioning.adoc>> - Versioning description.
+* <<docs/CM_Compatibility.adoc#,CM_Compatibility.adoc>> - Compatibility description.
+* <<docs/CM_FAQs.adoc#,CM_FAQs.adoc>> - Frequently asked questions.
+
+Linked documentation is contained in the `docs` folder.
+
+== Prerequisites
+
+To run this evaluation, please ensure you have first installed:
+
+* Java (1.8.0_91 or later)
+* Apache Maven (3.2.3 or later)
+
+== Our thanks
+
+Chronicle Software would like to thank you for taking the time to evaluate Chronicle Map, and we hope that you will see the benefits that a fully tailored and supported installation will bring your organisation.

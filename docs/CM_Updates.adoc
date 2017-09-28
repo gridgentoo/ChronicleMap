@@ -1,0 +1,46 @@
+= Difference between Chronicle Map 2 and 3
+Neil Clifford
+:toc: macro
+:toclevels: 1
+:css-signature: demo
+:toc-placement: macro
+:icons: font
+
+toc::[]
+
+== Functional changes
+
+ - Chronicle Map 3 has [formal data store specification](spec), that verbalizes [the guarantees
+ which the data store provides](spec/1-design-goals.md#guarantees-1) and gives a way to verify those
+ guarantees.
+ - Added support for multi-key queries.
+ - "Listeners" mechanism fully reworked, see the [Behaviour Customization](#behaviour-customization)
+ section. This has a number of important consequences, most notable is:
+   - Possibility to define replication eventual-consistency strategy, different from "last write
+   wins", e. g. any state-based CRDT.
+ - "Stateless clients" functionality (i. e. remote calls) is moved to [Chronicle Engine](
+ https://github.com/OpenHFT/Chronicle-Engine).
+ - Replication is done via [Chronicle Engine](https://github.com/OpenHFT/Chronicle-Engine).
+ - Chronicle Map 2 has hard creation-time limit on the number of entries storable in a Chronicle
+ Map. If the size exceeds this limit, an exception is thrown. In Chronicle Map 3, this limitation
+ is removed, though the number of entries still has to be configured on the Chronicle Map creation,
+ exceeding this configured limit is possible, but discouraged. See the [Number of entries
+ configuration](#number-of-entries-configuration) section.
+ - Chronicle Map 3 supports [entry checksums](#entry-checksums) that allows to detect data
+ corruption, hence brings additional safety.
+ - Chronicle Map 3 allows to [recover](#recovery) after failures and corruptions.
+ - A number of smaller improvements and fixes.
+
+== Non-functional changes
+
+ - Chronicle Map 3 requires Java version 8 or newer, while Chronicle Map 2 supports Java 7.
+ - Chronicle Map 3 has [versioning policy](docs/versioning.md) and [compatibility policy](
+ docs/compatibility.md). Chronicle Map 2 doesn't have such documents.
+
+If you use Chronicle Map 2, you might be looking for [Chronicle Map 2 Tutorial](
+https://github.com/OpenHFT/Chronicle-Map/tree/2.1#contents) or [Chronicle Map 2 Javadoc](
+http://www.javadoc.io/doc/net.openhft/chronicle-map/2.3.9/).
+
+
+'''
+<<../ReadMe.adoc#,Back to ReadMe>>

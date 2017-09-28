@@ -1,0 +1,50 @@
+= Chronicle Map overview
+
+Chronicle Map is a super-fast, in-memory, key-value
+store, that can overflow seamlessly to disk, and can be distributed across the network.
+
+INSERT DIAGRAM
+
+== Use cases
+Chronicle Map is used in production around the
+world for:
+
+• **real-time trading systems**. Chronicle Map
+provides in-memory access speeds, and supports
+ultra-low garbage collection. Chronicle Map can support the most demanding of applications.
+• **highly concurrent systems**. Chronicle Map
+supports multiple readers and writers,
+distributed across multiple machines.
+
+== Why use Chronicle Map?
+Chronicle Map is:
+
+• fast. Millions of operations per second, with
+low and stable microsecond latencies.
+• built using lessons learnt from real-world
+experience solving real-world problems.
+• open source (standard version), and in use at
+hundreds of sites around the world.
+• in production at banks and hedge funds
+globally.
+• reliable. Chronicle Software have a “chaos
+monkey” test which verifies Chronicle Map
+multi-master replication in the face of node
+and network failures.
+
+== Our offering
+Chronicle Software provide full support for
+Chronicle Map, consulting to help you make
+best use of the product, and can also deliver
+projects using a mix of our resources and
+your own.
+
+== Replication Environment Example
+The following diagram shows an example of Chronicle Map replication over 3 servers (or sites).
+
+INSERT DIAGRAM
+
+Replication is multi-master, lock-free, redundant, deterministic, and eventually consistent.
+
+The writer can optionally wait for replication to occur across nodes or regions.
+
