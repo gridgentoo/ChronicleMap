@@ -18,7 +18,7 @@ ChronicleMap 3.x.  For  more information, please refer to Chronicle Engine FAQ's
 For `get()s`, parallelizing will reduce costs. For `put()s`, if you have concurrency requirements, that is, multi-key lock before updating all of them, it should be in one thread.
 
 The stateless client which was available in the last version gives better performance if you use a number of threads. See
-https://github.com/OpenHFT/Chronicle-Map#how-to-speed-up-the-chronicle-map-stateless-client <https://github.com/OpenHFT/Chronicle-Map#how-to-speed-up-the-chronicle-map-stateless-client>
+https://github.com/OpenHFT/Chronicle-Map#how-to-speed-up-the-chronicle-map-stateless-client.
 
 You would not gain a performance benefit by using batches, unless you are compressing the batch of data. All the data will have to be sent via TCP, even if it's in a batch.
 
