@@ -12,7 +12,7 @@ toc::[]
 
 === Public API
 
-The *public API*  is comprised of public classes that are included in
+The *public API* comprises public classes that are included in
 http://www.javadoc.io/doc/net.openhft/chronicle-map/[Javadoc].
 
 Note: Other public classes are not subject to
