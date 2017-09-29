@@ -607,7 +607,7 @@ See link::CM_Tutorial_Behaviour.adoc[CM_Tutorial_Behaviour.adoc] for mre details
 
 Chronicle Map 3 is able to store entry checksums along with entries. With entry checksums it is
 possible to identify partially written entries (in case of operating system or power failure while)
-and corrupted entries (in case of hardware memory or disk corruption) and clean them up during the <<CM_Tutorial.adoc#Recovery,recovery>> procedure.
+and corrupted entries (in case of hardware memory or disk corruption) and clean them up during the <<CM_Tutorial.adoc#recovery,recovery>> procedure.
 
 Entry checksums are 32-bit numbers, computed by a hash function with good avalanche effect.
 Theoretically there is still about a one-billionth chance that after entry corruption it passes the
