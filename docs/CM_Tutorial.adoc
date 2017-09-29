@@ -84,7 +84,7 @@ persistence to disk, only multi-process access, choose the file to be mounted on
 
 ---
 
-==== You must configure `.entries(entries)` - the supposed `ChronicleMap` size.
+==== Configure `.entries(entries)`
 
 Try to configure the `entries` so that the created Chronicle Map is going to serve about 99% requests being less or equal than this number of entries in size.
 
