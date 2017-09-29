@@ -597,7 +597,7 @@ your JVM to crash. Close MUST BE the last thing that you do with the map.
 
 You can customize the behaviour of Chronicle Map.
 
-See link::CM_Tutorial_Behaviour.adoc[CM_Tutorial_Behaviour.adoc] for mre details.
+See <<CM_Tutorial_Behaviour.adoc#,CM_Tutorial_Behaviour.adoc>> for more details.
 
 
 == Entry checksums
