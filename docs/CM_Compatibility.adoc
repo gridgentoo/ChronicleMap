@@ -1,4 +1,4 @@
-= Chronicle Map 3 Compatibility
+= Chronicle Map Compatibility
 Neil Clifford
 :toc: macro
 :toclevels: 1
@@ -12,8 +12,8 @@ toc::[]
 
 === Public API
 
-For Chronicle Map, the *public API*  is comprised of public classes that are included in [Javadoc](
-http://www.javadoc.io/doc/net.openhft/chronicle-map/).
+The *public API*  is comprised of public classes that are included in
+http://www.javadoc.io/doc/net.openhft/chronicle-map/[Javadoc].
 
 Note: Other public classes are not subject to
 the following rules; they may be changed in any way, or even removed.
