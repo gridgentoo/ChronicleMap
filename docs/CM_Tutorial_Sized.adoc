@@ -140,7 +140,7 @@ public final class PointListSizedMarshaller
 Usage example:
 
 ```java
-try (ChronicleMap<String, List<Point>> objects = ChronicleMap
+try (ChronicleMa p<String, List<Point>> objects = ChronicleMap
         .of(String.class, (Class<List<Point>>) (Class) List.class)
         .averageKey("range")
         .valueMarshaller(PointListSizedMarshaller.INSTANCE)
