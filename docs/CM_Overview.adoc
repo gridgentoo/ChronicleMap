@@ -3,7 +3,7 @@
 Chronicle Map is a super-fast, in-memory, key-value
 store, that can overflow seamlessly to disk, and can be distributed across the network.
 
-INSERT DIAGRAM
+image::images\CM_Overview.jpg[]
 
 == Use cases
 Chronicle Map is used in production around the
@@ -25,7 +25,7 @@ low and stable microsecond latencies.
 experience solving real-world problems.
 • open source (standard version), and in use at
 hundreds of sites around the world.
-• in production at banks and hedge funds
+• in production at banks and hedge funds,
 globally.
 • reliable. Chronicle Software have a “chaos
 monkey” test which verifies Chronicle Map
@@ -42,7 +42,7 @@ your own.
 == Replication Environment Example
 The following diagram shows an example of Chronicle Map replication over 3 servers (or sites).
 
-INSERT DIAGRAM
+image::images\Configure_Three_Way_Replication.png[]
 
 Replication is multi-master, lock-free, redundant, deterministic, and eventually consistent.
 
