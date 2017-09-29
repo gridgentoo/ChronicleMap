@@ -82,7 +82,6 @@ you will observe the same data.
 If you don't need the Chronicle Map instance to survive the server restart, i. e. you don't need
 persistence to disk, only multi-process access, choose the file to be mounted on http://en.wikipedia.org/wiki/Tmpfs[tmpfs]; for example, on `Linux` it is as easy as placing you file in `/dev/shm` directory.
 
----
 
 ==== Configure `.entries(entries)`
 
@@ -92,12 +91,10 @@ You should not put additional margin over the actual target number of entries. T
 
 See `ChronicleMapBuilder#entries()` in http://www.javadoc.io/doc/net.openhft/chronicle-map/[Javadocs] for more information.
 
----
 
 Once `ChronicleMap` instance is created, its configurations are sealed and cannot be changed
 though the `ChronicleMapBuilder` instance.
 
----
 
 ==== Single `ChronicleMap` instance per JVM
 If you want to access a Chronicle Map data store
