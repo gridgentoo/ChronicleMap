@@ -7,12 +7,12 @@ The Chronicle Map documentation comprises the following:
 * `ReadMe.adoc` - This file.
 * <<docs/CM_Overview.adoc#,CM_Overview.adoc>> - High level overview.
 * <<docs/CM_Features.adoc#,CM_Features.adoc>> - Features description.
+* <<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>> - Tutorial.
+* <<docs/CM_FAQs.adoc#,CM_FAQs.adoc>> - Frequently asked questions.
 * <<docs/CM_Download.adoc#,CM_Download.adoc>> - Downloading the software.
 * <<docs/CM_Updates.adoc#,CM_Updates.adoc>> - Updates from Chronicle Map version 2.
-* <<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>> - Tutorial.
 * <<docs/CM_Versioning.adoc#,CM_Versioning.adoc>> - Versioning description.
 * <<docs/CM_Compatibility.adoc#,CM_Compatibility.adoc>> - Compatibility description.
-* <<docs/CM_FAQs.adoc#,CM_FAQs.adoc>> - Frequently asked questions.
 
 Linked documentation is contained in the `docs` folder.
 
