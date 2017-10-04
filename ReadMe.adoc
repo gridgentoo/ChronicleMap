@@ -1,28 +1,83 @@
 = Chronicle MAP
-Chronicle Map is an in-memory, key-value store, designed for low-latency, and/or multi-process
-applications such as trading and financial market applications.
 
-The Chronicle Map documentation comprises the following:
+Chronicle Map is a super-fast, in-memory, key-value store, designed for low-latency, and/or multi-process applications such as trading and financial market applications.
 
-* `ReadMe.adoc` - This file.
-* <<docs/CM_Overview.adoc#,CM_Overview.adoc>> - High level overview.
-* <<docs/CM_Features.adoc#,CM_Features.adoc>> - Features description.
-* <<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>> - Tutorial.
-* <<docs/CM_FAQs.adoc#,CM_FAQs.adoc>> - Frequently asked questions.
-* <<docs/CM_Download.adoc#,CM_Download.adoc>> - Downloading the software.
-* <<docs/CM_Updates.adoc#,CM_Updates.adoc>> - Updates from Chronicle Map version 2.
-* <<docs/CM_Versioning.adoc#,CM_Versioning.adoc>> - Versioning description.
-* <<docs/CM_Compatibility.adoc#,CM_Compatibility.adoc>> - Compatibility description.
+Chronicle Map can overflow seamlessly to disk, and can be distributed across the network.
 
-Linked documentation is contained in the `docs` folder.
+image::docs\images\CM_Overview.jpg[]
 
 == Prerequisites
 
-To run this evaluation, please ensure you have first installed:
+To run Chronicle Map, please ensure you have first installed:
 
 * Java (1.8.0_91 or later)
 * Apache Maven (3.2.3 or later)
 
-== Our thanks
+=== Use cases
+Chronicle Map is used in production around the
+world for:
 
-Chronicle Software would like to thank you for taking the time to evaluate Chronicle Map, and we hope that you will see the benefits that a fully tailored and supported installation will bring your organisation.
+• **real-time trading systems**. Chronicle Map
+provides in-memory access speeds, and supports
+ultra-low garbage collection. Chronicle Map can support the most demanding of applications.
+• **highly concurrent systems**. Chronicle Map
+supports multiple readers and writers,
+distributed across multiple machines.
+
+=== Why use Chronicle Map?
+Chronicle Map is:
+
+• **fast**. Millions of operations per second, with
+low and stable microsecond latencies.
+• **reliable**. Chronicle Software have a “chaos
+monkey” test which verifies Chronicle Map
+multi-master replication in the face of node
+and network failures.
+• **in production** at banks and hedge funds,
+globally.
+• **built using lessons learnt** from real-world
+experience solving real-world problems.
+• **open source** (standard version), and in use at
+hundreds of sites around the world.
+
+=== Our offering
+Chronicle Software provide full support for
+Chronicle Map, consulting to help you make
+best use of the product, and can also deliver
+projects using a mix of our resources and
+your own.
+
+=== Replication Environment Example
+The following diagram shows an example of Chronicle Map replication over three servers (or sites).
+
+image::docs\images\Configure_Three_Way_Replication.png[]
+
+Replication is multi-master, lock-free, redundant, deterministic, and eventually consistent.
+
+The writer can optionally wait for replication to occur across nodes or regions.
+
+NOTE: See <<docs/CM_Replication.adoc#,Chronicle Map Replication>> for more information.
+
+'''
+== Documentation
+The Chronicle Map documentation comprises:
+
+.Documentation
+|===
+|**Document**|**Purpose**
+|<<docs/CM_Features.adoc#,CM_Features.adoc>>
+|Features description.
+|<<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>>
+|Tutorial.
+|<<docs/CM_FAQs.adoc#,CM_FAQs.adoc>>
+|Frequently asked questions.
+|<<docs/CM_Download.adoc#,CM_Download.adoc>>
+|Downloading the software.
+|<<docs/CM_Updates.adoc#,CM_Updates.adoc>>
+|Updates from Chronicle Map version 2.|<<docs/CM_Replication.adoc#,CM_Replication.adoc>>
+|Replication explanation.
+|<<docs/CM_Compatibility_and_Versioning.adoc#,CM_Compatibility_and_Versioning>>
+|Compatibility and Versioning description.
+|===
+
+Linked documentation is contained in the `docs` folder.

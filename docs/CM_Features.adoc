@@ -23,11 +23,14 @@ applications such as trading and financial market applications.
 
 == Unique features
  - Multiple processes could access a Chronicle Map concurrently. At the same time,
- the data store is *in-process for each of the accessing processes*. (Out-of-process approach to IPC
- is simply incompatible with Chronicle Map's median latency target of < 1 μs.)
+ the data store is *in-process for each of the accessing processes*. Out-of-process approach to IPC
+ is simply incompatible with Chronicle Map's median latency target of < 1 μs.
 
  - Replication *without logs*, with constant footprint cost, guarantees progress even if the network
  doesn't sustain write rates.
+
+
+NOTE: See <<docs/CM_Replication.adoc#,Chronicle Map Replication>> for more information.
 
 **Chronicle Map** has two meanings:
 
