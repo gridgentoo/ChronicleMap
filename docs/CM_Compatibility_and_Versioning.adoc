@@ -58,7 +58,7 @@ In addition, potential *concurrent* accessing implementations of older versions 
 
 If more substantial changes to the specification are required, the revision number should be updated.
 
-The binary form of Chronicle Map and its algorithms could change between revisions to any degree, but <<"../spec/1-design-goals.md"#guarantees,guarantees>> provided by the specification are not weakened.
+The binary form of Chronicle Map and its algorithms could change between revisions to any degree, but link:../spec/1-design-goals.md#guarantees[guarantees] provided by the specification are not weakened.
 
 == Java implementation Versioning
 
