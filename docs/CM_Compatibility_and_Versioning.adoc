@@ -86,7 +86,7 @@ For example:
   ** the binary, or serialized, form of Chronicle Map data store; therefore revising the Chronicle Map data store specification.
   ** the binary replication protocol, or the serialized form of some marshaller classes, that require creation of new versions of classes.
 
-=== The <minor> number should not be updated (that is, the next release could update only the "patch" number) when:
+=== The <minor> number should not be updated when:
  - **a bug fixed**, in a way that doesn't make any working code to change its behaviour semantically.
  - **performance is optimized**, changing its performance characteristics,
  but not semantics.
@@ -98,6 +98,8 @@ to update the `<minor>` number, then the version should be changed to `3.<y+1>.0
 commit operation* that these changes are made.
 
 Suffixes `-alpha`, `-beta`, `-rc`, mean it is a pre-production release.
+
+NOTE: If the <minor> number is not to be updated, the next release updates the `<patch>` number.
 
 == Specification Versioning
 
