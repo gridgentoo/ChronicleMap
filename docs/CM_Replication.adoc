@@ -9,7 +9,7 @@ Neil Clifford
 toc::[]
 
 == Enterprise Edition
-Chronicle Map Replication as part of the Chronicle Map (Enterprise Edition); a commercially supported version of our successful open source Chronicle Map. Extended features include:
+Chronicle Map Replication is part of Chronicle Map (Enterprise Edition); a commercially supported version of our successful open source Chronicle Map. Extended features include:
 
 - *Replication* to ensure real-time backup of all your map data.
 - *Resilience* support for robust fail-over and disaster recovery environments.
@@ -18,7 +18,7 @@ In addition, you will be fully supported by our technical experts.
 
 For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software].
 
-== Replication
+= Replication
 
 Chronicle Map Replication is a multi-master replicated data store. Chronicle Map supports both TCP and UDP replication
 
