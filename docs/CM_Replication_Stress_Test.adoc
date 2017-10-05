@@ -13,7 +13,7 @@ NOTE: This document assumes that you have access to the restricted link::https:/
 
 == Single master, multiple slaves
 
-To execute a test, open the the `Example4` directory, then execute the following command from a `bash` shell:
+To execute a test, open the the `Example4` directory, and then execute the following command from a `bash` shell:
 
 [source,bash]
 ....
