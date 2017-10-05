@@ -283,4 +283,4 @@ $ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml -h 3 -r
 
 This will ensure that the existing map is recovered from disk, possibly saving network traffic, depending on how much data has been updated in the master map during downtime.
 
-<<Replication.adoc#,Back to Replication>>
+<<CM_Replication.adoc#,Back to Replication>>
