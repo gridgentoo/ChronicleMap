@@ -6,13 +6,6 @@ Chronicle Map can overflow seamlessly to disk, and can be distributed across the
 
 image::docs\images\CM_Overview.jpg[]
 
-== Prerequisites
-
-To run Chronicle Map, please ensure you have first installed:
-
-* Java (1.8.0_91 or later)
-* Apache Maven (3.2.3 or later)
-
 === Use cases
 Chronicle Map is used in production around the
 world for:
@@ -65,19 +58,13 @@ The Chronicle Map documentation comprises:
 .Documentation
 |===
 |**Document**|**Purpose**
-|<<docs/CM_Features.adoc#,CM_Features.adoc>>
-|Features description.
-|<<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>>
-|Tutorial.
-|<<docs/CM_FAQs.adoc#,CM_FAQs.adoc>>
-|Frequently asked questions.
-|<<docs/CM_Download.adoc#,CM_Download.adoc>>
-|Downloading the software.
-|<<docs/CM_Updates.adoc#,CM_Updates.adoc>>
-|Updates from Chronicle Map version 2.|<<docs/CM_Replication.adoc#,CM_Replication.adoc>>
-|Replication explanation.
-|<<docs/CM_Compatibility_and_Versioning.adoc#,CM_Compatibility_and_Versioning>>
-|Compatibility and Versioning description.
+|<<docs/CM_Features.adoc#,CM_Features.adoc>>|Features description.
+|<<docs/CM_Replication.adoc#,CM_Replication.adoc>>|Replication explanation.
+|<<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>>|Tutorial.
+|<<docs/CM_FAQs.adoc#,CM_FAQs.adoc>>|Frequently asked questions.
+|<<docs/CM_Download.adoc#,CM_Download.adoc>>|Downloading the software.
+|<<docs/CM_Updates.adoc#,CM_Updates.adoc>>|Updates from Chronicle Map version 2.
+|<<docs/CM_Compatibility_and_Versioning.adoc#,CM_Compatibility_and_Versioning>>|Compatibility and Versioning description.
 |===
 
 Linked documentation is contained in the `docs` folder.

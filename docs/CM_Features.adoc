@@ -84,7 +84,7 @@ It is split into independent segments; each segment has:
 
 Read [the Chronicle Map data store design overview](spec/2-design-overview.md) for more information.
 
-== Chronicle Map is not:
+== Chronicle Map is not
 
  - A document store. No secondary indexes.
  - A https://en.wikipedia.org/wiki/Multimap[multimap].

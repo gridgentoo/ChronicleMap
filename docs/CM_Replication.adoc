@@ -8,7 +8,8 @@ Neil Clifford
 
 toc::[]
 
-Chronicle Map supports both TCP and UDP replication
+Chronicle Map supports both TCP and UDP replication in the closed-source Chronicle Map Enterprise.
+For more information on this please contact mailto:sales@chronicle.software.
 
 image::http://openhft.net/wp-content/uploads/2014/07/Chronicle-Map-TCP-Replication_simple_02.jpg[TCP/IP Replication]
 
