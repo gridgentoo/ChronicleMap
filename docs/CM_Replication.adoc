@@ -8,9 +8,7 @@ Neil Clifford
 
 toc::[]
 
-
-Chronicle Map Replication is a multi-master replicated data store.
-
+== Enterprise Edition
 Chronicle Map Replication as part of the Chronicle Map (Enterprise Edition); a commercially supported version of our successful open source Chronicle Map. Extended features include:
 
 - *Replication* to ensure real-time backup of all your map data.
@@ -20,11 +18,13 @@ In addition, you will be fully supported by our technical experts.
 
 For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software].
 
-Chronicle Map supports both TCP and UDP replication
+== Replication
+
+Chronicle Map Replication is a multi-master replicated data store. Chronicle Map supports both TCP and UDP replication
 
 image::http://openhft.net/wp-content/uploads/2014/07/Chronicle-Map-TCP-Replication_simple_02.jpg[TCP/IP Replication]
 
-== TCP / UDP Background.
+== TCP / UDP Background
 TCP/IP is a reliable protocol. This means that, unless you have a network failure or hardware outage, the data is guaranteed to arrive. TCP/IP provides point-to-point connectivity. For example, if the message was sent to 100 hosts, the message would have to be sent 100 times.
 
 With UDP, the message is only sent once. This is ideal if you have a large number of hosts and you wish to broadcast the same data to each of them. However, one of the big drawbacks with UDP is that it's not a reliable protocol. This means, if the UDP message is broadcast onto the network, the hosts are not guaranteed to receive it; so they can miss data.
