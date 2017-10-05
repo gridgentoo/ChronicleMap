@@ -11,7 +11,7 @@ toc::[]
 
 == License
 
-Chronicle Map is distributed under LGPLv3. If you want to obtain this software under more permissive
+Chronicle Map is distributed under `LGPLv3`. If you want to obtain this software under a more permissive
 license, please contact mailto:sales@chronicle.software.
 
 == Maven Artifact Download
@@ -47,7 +47,7 @@ A better way, is to add the following to your `setting.xml` file to allow Maven 
     </snapshots>
 </repository>
 ```
-and define the snapshot version in your `pom.xml`; for example:
+You can define the snapshot version in your `pom.xml`; for example:
 
 ```xml
 <dependency>

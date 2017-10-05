@@ -12,22 +12,20 @@ Changes between Chronicle Map 3 and the previous Chronicle Map version are detai
 
 == Functional changes
 
- - Chronicle Map 3 has link::https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec[formal data store specification] that specifies link::https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec/1-design-goals.md#guarantees-1[the guarantees
+ - Chronicle Map 3 has a link::https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec[formal data store specification] that specifies link::https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec/1-design-goals.md#guarantees-1[the guarantees
  which the data store provides] and gives a way to verify those guarantees.
 
  - Added support for multi-key queries.
 
- - "Listeners" mechanism fully reworked; see <<CM_Tutorial_Behaviour.adoc#,Behaviour Customization>>. This has a number of important consequences, most notable is:
-
- ** it is now possible to define "eventual-consistency" replication strategy, different from "last write wins"; any state-based CRDT.
+ - "Listeners" mechanism fully reworked; see <<CM_Tutorial_Behaviour.adoc#,Behaviour Customization>>. This has a number of important consequences, most notable is that it is now possible to define "eventual-consistency" replication strategy, different from "last write wins"; any state-based CRDT.
 
  - "Stateless clients" functionality (remote calls) is moved to https://github.com/OpenHFT/Chronicle-Engine[Chronicle Engine].
 
  - Replication is performed using https://github.com/OpenHFT/Chronicle-Engine[Chronicle Engine].
 
- - Earlier versions of Chronicle Map had hard creation-time limits on the number of entries storable in a Chronicle Map. If the size exceeded this limit, an exception is thrown. +
+ - Earlier versions of Chronicle Map had hard creation-time limits on the number of entries storable in a Chronicle Map. If the size exceeded this limit, an exception was thrown. +
  In Chronicle Map 3, this limitation is removed. The number of entries still has to be configured when the Chronicle Map is created, Exceeding this configured limit is possible, but discouraged. +
- For more information, see the <<Configure `.entries(entries)`>> section.
+ For more information, see <<CM_Tutorial.adoc#Configure `.entries(entries)`,Configure `.entries(entries)`>>.
 
  - Chronicle Map 3 supports <<CM_Tutorial.adoc#entry-checksums,entry checksums>> that enables detection of  data corruption, providing additional safety.
 
@@ -37,9 +35,9 @@ Changes between Chronicle Map 3 and the previous Chronicle Map version are detai
 
 == Non-functional changes
 
- - Chronicle Map 3 requires Java version 8, or newer.
+ - Chronicle Map 3 requires Java version 8, or later.
 
- - Chronicle Map 3 has <<CM_Versioning.adoc#, versioning policy>> and <<CM_Compatibility.adoc#,compatibility policy>>.
+ - Chronicle Map 3 has <<CM_Versioning_and_Compatibility.adoc#,versioning and compatibility policies>>.
 
 
 '''

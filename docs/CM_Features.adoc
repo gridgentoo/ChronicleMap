@@ -9,11 +9,11 @@ Neil Clifford
 toc::[]
 
 Chronicle Map is an in-memory, key-value store, designed for low-latency, and/or multi-process
-applications such as trading and financial market applications.
+applications, such as trading and financial market applications.
 
 == Features
  - **Ultra low latency**: Chronicle Map targets median latency of both read and write queries of less
- than 1 *micro*second in https://github.com/OpenHFT/Chronicle-Map/search?l=java&q=perf&type=Code[certain tests].
+ than 1 microsecond in https://github.com/OpenHFT/Chronicle-Map/search?l=java&q=perf&type=Code[certain tests].
 
  - **High concurrency**: Write queries scale well up to the number of hardware execution threads in
  the server. Read queries never block each other.
@@ -22,8 +22,8 @@ applications such as trading and financial market applications.
  servers, "last write wins" strategy by default, allows to implement custom https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type[state-based CRDT] strategy.
 
 == Unique features
- - Multiple processes could access a Chronicle Map concurrently. At the same time,
- the data store is *in-process for each of the accessing processes*. Out-of-process approach to IPC
+ - Multiple processes can access a Chronicle Map concurrently. At the same time,
+ the data store is *in-process* for each of the accessing processes. Out-of-process approach to IPC
  is simply incompatible with Chronicle Map's median latency target of < 1 μs.
 
  - Replication *without logs*, with constant footprint cost, guarantees progress even if the network
@@ -51,24 +51,26 @@ queries*.
 === Primary Chronicle Map use cases**
 
  - Replacing slower key-value stores, like `Redis` and `Memcached`, when used within a single server.
- - Replacing similar JVM-centric solutions, like `Coherence` and `Hazelcast`, for speed and/or certain Chronicle Map features those solutions lack.
- - Moving parts of the application state out of the Java heap for either:
- * Reducing the heap size, for reducing GC pressure, or fitting 32 GB for using `CompressedOops`.
+
+ - Replacing similar JVM-centric solutions, like `Coherence` and `Hazelcast`, for speed and/or certain Chronicle Map features which those solutions lack.
+
+ - Moving parts of the application-state out of the Java heap for either:
+ * Reducing the heap size, for reducing garbage collection pressure, or fitting 32 GB, for using `CompressedOops`.
  * Inter-process communication.
- * Persistence`
+ * Persistence.
  * Replication across servers.
 
- - Drop-in `ConcurrentHashMap` replacement, Chronicle Map performs better in some cases.
+ - Drop-in `ConcurrentHashMap` replacement; Chronicle Map performs better in some cases.
 
 === What guarantees does Chronicle Map provide in ACID terms?
 
- - Atomicity - single-key queries are atomic if Chronicle Map is properly configured, multi-key
+ - **Atomicity** - single-key queries are atomic if Chronicle Map is properly configured, multi-key
  queries are not atomic.
- - Consistency - doesn't make sense for key-value stores
- - Isolation - yes (for both single- and multi-key queries).
- - Durability - no, Chronicle Map can be persisted to disk but with no guarantee as to to how frequently this
- happens - this is under the control of the OS. All data is guaranteed to be written to disk when the Map is closed.
- - Clustering and replication for Chronicle
+ - **Consistency** - doesn't make sense for key-value stores
+ - **Isolation** - yes; for both single- and multi-key queries.
+ - **Durability** - no; Chronicle Map can be persisted to disk, but with no guarantee as to how frequently this
+ happens. This is under the control of the OS. All data is guaranteed to be written to disk when the Map is closed.
+ - **Clustering** and **replication** for Chronicle
  Map is provided by http://chronicle.software/products/chronicle-map/[Chronicle Map Enterprise].
 
 **Project status: ready for production.**
@@ -78,27 +80,29 @@ Simply put, a Chronicle Map data store is a big chunk of shared memory (optional
 
 It is split into independent segments; each segment has:
 
- - an independent memory allocation for storing the entries,
+ - an independent memory allocation for storing the entries
+
  - a hash table for search
+
  - a lock in shared memory (implemented via CAS loops) for managing concurrent access.
 
-Read [the Chronicle Map data store design overview](spec/2-design-overview.md) for more information.
+See the <<../spec/2-design-overview.md#, Chronicle Map data store design overview>> for more information.
 
 == Chronicle Map is not
 
- - A document store. No secondary indexes.
+ - A document store. There are no secondary indexes.
  - A https://en.wikipedia.org/wiki/Multimap[multimap].
- Using a Chronicle Map collection as multimap is technically possible, but often leads to problems. See http://stackoverflow.com/a/36486525/648955[StackOverflow answer] for details.
- Developing a proper multimap with
- Chronicle Map's design principles is possible,
+ Using a Chronicle Map collection as a multimap is technically possible, but often leads to problems. See http://stackoverflow.com/a/36486525/648955[StackOverflow answer] for details.
+ Developing a proper multimap, using
+ Chronicle Map's design principles is possible.
 
 Please contact us at mailto:sales@chronicle.software[sales@chronicle.software] if
  you would consider sponsoring such development.
 
 == Chronicle Map does not support:
 
- - Range queries
- - Iteration over the entries in alphabetical order.
+ - range queries.
+ - iteration over the entries in alphabetical order.
  - sorting of keys.
  - LRU entry eviction.
 
@@ -129,7 +133,7 @@ Please contact us at mailto:sales@chronicle.software[sales@chronicle.software] i
  - https://github.com/OpenHFT/Chronicle-Engine[Chronicle Engine].  Reactive processing framework
  supporting Chronicle Map as a backend.
  - http://chronicle.software/products/chronicle-enterprise/[Chronicle Enterprise]. Extended
- version of Chronicle Engine.
+ versions of Chronicle software.
  - http://vanillajava.blogspot.com/2015/09/chronicle-journal-customizable-data.html[Chronicle Journal]. Another
  key-value built by Chronicle Software, with different properties.
 

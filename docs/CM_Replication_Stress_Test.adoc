@@ -13,17 +13,17 @@ NOTE: This document assumes that you have access to the restricted link::https:/
 
 == Single master, multiple slaves
 
-To execute a test, open the the `Example4` directory, and then execute the following command from a `bash` shell:
+To execute a test, open the the `Example4` folder, and then execute the following command from a `bash` shell:
 
 [source,bash]
 ....
 $ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml
 ....
 
-This command will run a test using the specified configuration, which models a single master
-node along with three slave nodes. All nodes run within the same JVM for simplicity.
+This command runs a test, using the specified configuration, which models a single master
+node working with three slave nodes. All nodes run within the same JVM for simplicity.
 
-The test will report throughput metrics in terms of reads, writes, and network traffic. For example:
+The test reports throughput metrics in terms of reads, writes, and network traffic. For example:
 
 [source,bash]
 ....
@@ -35,7 +35,7 @@ Node 3 received 1061 events/sec, 151KB/sec from remote 1
 Node 2 received 1062 events/sec, 151KB/sec from remote 1
 ....
 
-Every minute, the test will pause the writer and check that all maps within the cluster
+Every minute, the test pauses the writer, and checks that all maps within the cluster
 contain the same data; that is, they all have the same `keySet`, and the value for each key is
 identical throughout the cluster. For example:
 
@@ -51,26 +51,29 @@ All maps contained the same data
 
 To spread the workload over multiple JVMs, use the `-h` parameter, which specifies the nodes that should be started in a particular JVM. The `singleMasterStressTest.yaml` configuration file contains 4 nodes (1 master, 3 slaves). The example below spreads these nodes across two processes.
 
-In one terminal, run the following command:
+. On one terminal, run the following command:
 
-[source,bash]
-....
-$ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml -h 1 -h 2
-....
+ [source,bash]
+ ....
+ $ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml -h 1 -h 2
+ ....
 
++
 then wait for the message notifying that the test is starting:
 
-[source,bash]
-....
-Built stress test artifacts, running test..
-....
+ [source,bash]
+ ....
+ Built stress test artifacts, running test..
+ ....
 
-Now in another terminal, run the following command:
+. On another terminal, run the following command:
 
-[source,bash]
-....
-$ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml -h 3 -h 4
-....
+ [source,bash]
+ ....
+ $ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml -h 3 -h 4
+ ....
+
++
 
 In both terminals, throughput and map-equality checking will be reported.
 
@@ -114,6 +117,7 @@ Test parameters are described below:
 == Running tests across multiple physical machines
 
 To demonstrate how to run tests across different machines, the following details are defined:
+
 Hosts within the cluster:
 
 [frame="topbot",options="header,footer"]
@@ -128,11 +132,11 @@ Hosts within the cluster:
 NOTE: Substitute your own settings as appropriate.
 
 
-TCP port used for replication; this port will need to be open on all hosts:
+**TCP port used for replication**; this port will need to be open on all hosts:
 
 `13000`
 
-Configuration file name:
+**Configuration file name**:
 
 `multiHost.yaml`
 
@@ -193,7 +197,7 @@ To run the test on remote machines, the stress test can be packaged up using the
 $ ./package_stress_test.sh
 ....
 
-This command will generate a `tar` archive in the current directory, containing everything required to run a stress test.
+This command generates a `tar` archive in the current directory, containing everything required to run a stress test.
 
 Copy the resulting `tar` file to the remote server, unpack using `tar xf`, and then run the following command:
 
@@ -207,10 +211,10 @@ To run the example multi-machine configuration described above, the following co
 [frame="topbot",options="header,footer"]
 |=======================================
 | host  |  host_id  | IP       | command
-|   A   |      1    |10.0.2.1  | ./run_stress_test.sh -c multiHost.yaml -h 1
-|   B   |      2    |10.0.2.14 | ./run_stress_test.sh -c multiHost.yaml -h 2
-|   C   |      3    |10.0.2.30 | ./run_stress_test.sh -c multiHost.yaml -h 3
-|   D   |      4    |10.0.2.22 | ./run_stress_test.sh -c multiHost.yaml -h 4
+|   **A**   |      `1`    |`10.0.2.1`  | `./run_stress_test.sh -c multiHost.yaml -h 1`
+|   **B**   |      `2`    |`10.0.2.14` | `./run_stress_test.sh -c multiHost.yaml -h 2`
+|   **C**   |      `3`    |`10.0.2.30` | `./run_stress_test.sh -c multiHost.yaml -h 3`
+|   **D**   |      `4`    |`10.0.2.22` | `./run_stress_test.sh -c multiHost.yaml -h 4`
 |=======================================
 
 
@@ -218,8 +222,9 @@ To run the example multi-machine configuration described above, the following co
 
 There are two ways of recovering from node failure:
 
-1. Wipe previous map data, and rejoin the cluster
-2. Recover from previous map data, and rejoin the cluster
+1. Delete previous map data, and rejoin the cluster.
+
+2. Recover previous map data, and rejoin the cluster.
 
 If the total dataset contains a large proportion of infrequently updated records, then it is preferable to use option 2.
 
@@ -243,7 +248,7 @@ Both scenarios can be simulated using the stress test.
  $ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml -h 1
  ....
 
-. When replication has been established, kill the slave process, (for example by using `Ctrl+c`).
+. When replication has been established, kill the slave process; for example, by using `Ctrl+c`.
 
 . Restart the slave process (see step 1).
 By default, the stress test code deletes existing map data files for the specified hosts
@@ -256,7 +261,7 @@ on startup.
 
 +
 There should be a noticable difference in throughput after the restart, as
-the slave map gets pushed the entire data-set from the master:
+the slave map receives the entire data-set from the master:
 
  [source,bash]
  ....
@@ -281,6 +286,6 @@ Perform the same procedure as in Option 1, step 4, but this time when restarting
 $ ./run_stress_test.sh -c src/main/resources/singleMasterStressTest.yaml -h 3 -r
 ....
 
-This will ensure that the existing map is recovered from disk, possibly saving network traffic, depending on how much data has been updated in the master map during downtime.
+This ensures that the existing map is recovered from disk. This may save network traffic, depending on how much data has been updated in the master map during downtime.
 
 <<CM_Replication.adoc#,Back to Replication>>
