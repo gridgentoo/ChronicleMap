@@ -30,7 +30,7 @@ applications such as trading and financial market applications.
  doesn't sustain write rates.
 
 
-NOTE: See <<docs/CM_Replication.adoc#,Chronicle Map Replication>> for more information.
+NOTE: See <<CM_Replication.adoc#,Chronicle Map Replication>> for more information.
 
 **Chronicle Map** has two meanings:
 
