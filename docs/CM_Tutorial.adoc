@@ -189,7 +189,7 @@ The key, or value type, of `ChronicleMap<K, V>` could be:
    ** `byte[]` and `ByteBuffer`
    ** `CharSequence`, `String` and `StringBuilder`. Note that these char sequence types are
    serialized using UTF-8 encoding by default. If you need a different encoding, refer to the
-   example in the <<CM_Tutorial.adoc#custom-charsequence-encoding,custom `CharSequence` encoding>> section.
+   example in <<CM_Tutorial_Bytes.adoc#custom-charsequence-encoding,custom `CharSequence` encoding>>.
    ** `Integer`, `Long` and `Double`
 
  - Types supported out-of-the-box, but that are not particularly efficiently. You may want to implement
@@ -200,7 +200,7 @@ The key, or value type, of `ChronicleMap<K, V>` could be:
 
  - Any other type, if <<CM_Tutorial.adoc#custom-serializers,custom serializers>> are provided.
 
-https://github.com/OpenHFT/Chronicle-Values)[Value interfaces] are preferred as they do not generate garbage, and have close to zero serialization/deserialization costs. They are preferable even to boxed primitives. For example, try to use `net.openhft.chronicle.core.values.IntValue` instead of `Integer`.
+https://github.com/OpenHFT/Chronicle-Values[Value interfaces] are preferred as they do not generate garbage, and have close to zero serialization/deserialization costs. They are preferable even to boxed primitives. For example, try to use `net.openhft.chronicle.core.values.IntValue` instead of `Integer`.
 
 Generally, you must provide hints for the `ChronicleMapBuilder` with the average sizes of the keys and the values, which are going to be inserted into the `ChronicleMap`. This is required in order to allocate the proper amount of shared memory. Do this using `averageKey()` (preferred) or `averageKeySize()`, and
 `averageValue()` or `averageValueSize()` respectively.
@@ -605,7 +605,7 @@ your JVM to crash. Close **MUST** be the last thing that you do with the map.
 
 You can customize the behaviour of Chronicle Map.
 
-See <<CM_Tutorial_Behaviour.adoc#,CM_Tutorial_Behaviour.adoc>> for more details.
+See <<CM_Tutorial_Behaviour.adoc#,CM_Tutorial_Behaviour>> for more details.
 
 
 == Entry checksums
