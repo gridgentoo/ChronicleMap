@@ -2,7 +2,8 @@
 
 Chronicle Map is a super-fast, in-memory, key-value store, designed for low-latency, and/or multi-process applications such as trading and financial market applications.
 
-Chronicle Map can overflow seamlessly to disk, and can be distributed across the network.
+
+The size of a Chronicle Map is not limited by memory (RAM), but rather by the available disk capacity.
 
 image::docs\images\CM_Overview.jpg[]
 
