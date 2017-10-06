@@ -16,7 +16,7 @@ This document describes the Chronicle Map tutorial supplied with the project.
 Creating an instance of `ChronicleMap` is a little more complex than just calling a constructor.
 To create an instance you have to use the `ChronicleMapBuilder`.
 
-=== In-memory Chronicle Map
+== In-memory Chronicle Map
 The following code snippet creates an in-memory Chronicle Map store, to store about 50,000 _city name -> postal code_ mappings.
 
 It is accessible within a single JVM process; the process in which it was created. The data is accessible while the process is alive. When the process is terminated, the data is cleared.
@@ -52,7 +52,7 @@ ChronicleMap<Integer, PostalCodeRange> cityPostalCodes = ChronicleMap
     .create();
 ```
 
-=== Persisted Chronicle Map
+== Persisted Chronicle Map
 
 You can amend this code to create a persisted Chronicle Map by replacing `.create()` calls with `.createPersistedTo(cityPostalCodesFile)`. Use a persisted Chronicle Map if you want it to, either:
 
@@ -85,7 +85,7 @@ If you don't need the Chronicle Map instance to survive the server restart, i. e
 persistence to disk, only multi-process access, choose the file to be mounted on http://en.wikipedia.org/wiki/Tmpfs[tmpfs]. For example, on `Linux` it is as easy as placing you file in `/dev/shm` directory.
 
 
-==== Configure `.entries(entries)`
+== Configure `.entries(entries)`
 
 Try to configure the `entries` so that the created Chronicle Map is going to serve about 99% requests being less or equal than this number of entries in size.
 
@@ -98,11 +98,11 @@ Once `ChronicleMap` instance is created, its configurations are sealed and canno
 though the `ChronicleMapBuilder` instance.
 
 
-==== Single `ChronicleMap` instance per JVM
+== Single `ChronicleMap` instance per JVM
 If you want to access a Chronicle Map data store
 concurrently within a Java process, you should not create a separate `ChronicleMap` instance per thread. Within the JVM environment, `ChronicleMap` instance is a `ConcurrentMap`, and could be accessed concurrently the same way as, for example, `ConcurrentHashMap`.
 
-=== Recovery
+== Recovery
 
 If a process, accessing a persisted Chronicle Map, terminated abnormally: crashed, `SIGKILL`ed, or
 terminated because the host operating system crashed, or the machine lost power, the Chronicle Map
@@ -170,7 +170,7 @@ checks for each entry that the checksums is correct, otherwise it assumes the en
 deletes it from the Chronicle Map. If checksums are to stored, recovery procedure cannot guarantee
 correctness of entry data. See [Entry checksums](#entry-checksums) section for more information.
 
-=== Key and Value Types
+== Key and Value Types
 
 Either key or value type of `ChronicleMap<K, V>` could be:
 
@@ -230,7 +230,7 @@ ChronicleSet<UUID> uuids =
         .create();
 ```
 
-=== Custom serializers
+== Custom serializers
 
 Chronicle Map allows you to configure custom marshallers for key or value types which are not supported out of the box. You can also serialize supported types like `String` in some custom way (encoded other than UTF-8), or serialize supported types more efficiently than by default.
 
@@ -240,7 +240,7 @@ There are three pairs of serialization interfaces, only one of them should be ch
 - link:CM_Tutorial_Sized.adoc[SizedWriter and SizedReader]
 - link:CM_Tutorial_DataAccess.adoc[DataAccess and SizedReader]
 
-==== Custom serialization checklist
+=== Custom serialization checklist
 
  1. Choose the most suitable pair of serialization interfaces; link:CM_Tutorial_Bytes.adoc[BytesWriter and BytesReader], link:CM_Tutorial_Sized.adoc[SizedWriter and SizedReader], or link:CM_Tutorial_DataAccess.adoc[DataAccess and SizedReader]. Recommendations on which pair to choose are given in
  the linked sections, describing each pair.
