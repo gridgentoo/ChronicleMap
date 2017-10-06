@@ -12,7 +12,7 @@ toc::[]
 
  1. Sometimes on reading, writing, or in other methods, defined in serialization interfaces, it is needed to operate with intermediate objects; holding some writing/reading state.
  +
-In the simplest and most common case, those objects are of some kind of buffer between serialized or deserialized instances, and output or input `Bytes`. For example, see writer and reader implementations in <<document-b.adoc#custom `CharSequence` encoding,custom `CharSequence` encoding>>.
+In the simplest and most common case, those objects are of some kind of buffer between serialized or deserialized instances, and output or input `Bytes`. For example, see writer and reader implementations in <<CM_Tutorial_Bytes.adoc#custom-charsequence-encoding,custom `CharSequence` encoding>>.
  +
 To avoid generating a lot of garbage, those intermediate objects should be cached.
 
@@ -39,7 +39,7 @@ An inefficient and fragile solution would be a single instance of serialization 
 multiple methods in serializer interfaces over a single query to a Chronicle Map (the 3rd point in
 the problems list above), then you should consider that a single serializer instance could be used for both keys and values of the same Chronicle Map. Calls to some methods of serializer interface for serializing the key and the value over a Chronicle Map query are interspersed in unspecified order.
 
-In addition, you should consider that a single serializer instance could be used to access multiple independent Chronicle Map instances in the same thread. Calls to serializers within maps could be interspersed via <<CM_Tutorial.adoc#Working with an entry within a context,Working with an entry within a context>>.
+In addition, you should consider that a single serializer instance could be used to access multiple independent Chronicle Map instances in the same thread. Calls to serializers within maps could be interspersed using <<CM_Tutorial.adoc#working-with-an-entry-within-a-context,contexts access>>.
 
 So, `ThreadLocal` fields should be isolated; not just per-accessing thread, but also per-serialized object domain, and per-accessing Chronicle Map instance.
 
@@ -55,7 +55,7 @@ As a consequence, the `copy()` method is transitive. `serializer.copy().copy().c
 
 Chronicle Map implementation recognizes that configured `BytesWriter`, `BytesReader`, `SizedWriter`, `SizedReader`, or `DataAccess` instances implement `StatefulCopyable`, and populates it internally using `copy()` for each thread, Chronicle Map instances and serialized object domain (keys or values).
 
-See examples of implementing this interface in <<CM_Tutorial.adoc#custom-charsequence-encoding,custom `CharSequence` encoding>>.
+See examples of implementing this interface in <<CM_Tutorial_Bytes.adoc#custom-charsequence-encoding,custom `CharSequence` encoding>>.
 
 It is permissable to return `this` from the `copy()` method, if the
 serializer implementation doesn't have a state.
@@ -66,4 +66,4 @@ class.
 
 
 '''
-<<CM_Tutorial.adoc,Back to Tutorial>>
+<<CM_Tutorial.adoc#,Back to Tutorial>>
