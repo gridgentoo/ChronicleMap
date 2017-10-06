@@ -67,6 +67,8 @@ The Chronicle Map documentation comprises:
 |**Document**|**Purpose**
 |<<docs/CM_Features.adoc#,CM_Features.adoc>>
 |Features description.
+|<<docs/CM_Replication.adoc#,CM_Replication.adoc>>
+|Replication explanation.
 |<<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>>
 |Tutorial.
 |<<docs/CM_FAQs.adoc#,CM_FAQs.adoc>>
@@ -75,10 +77,6 @@ The Chronicle Map documentation comprises:
 |Downloading the software.
 |<<docs/CM_Updates.adoc#,CM_Updates.adoc>>
 |Updates from Chronicle Map version 2.
-|<<docs/CM_Replication.adoc#,CM_Replication.adoc>>
-|Replication explanation.
-|<<docs/CM_Replication_Stress_Test.adoc#,CM_Replication_Stress_Test.adoc>>
-|Example Replication stress test.
 |<<docs/CM_Compatibility_and_Versioning.adoc#,CM_Compatibility_and_Versioning>>
 |Compatibility and Versioning description.
 |===
