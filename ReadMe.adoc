@@ -65,17 +65,17 @@ The Chronicle Map documentation comprises:
 .Documentation
 |===
 |**Document**|**Purpose**
-|<<docs/CM_Features.adoc#,CM_Features.adoc>>
+|<<docs/CM_Features.adoc#,CM_Features>>
 |Features description.
-|<<docs/CM_Replication.adoc#,CM_Replication.adoc>>
+|<<docs/CM_Replication.adoc#,CM_Replication>>
 |Replication explanation.
-|<<docs/CM_Tutorial.adoc#,CM_Tutorial.adoc>>
+|<<docs/CM_Tutorial.adoc#,CM_Tutorial>>
 |Tutorial.
-|<<docs/CM_FAQs.adoc#,CM_FAQs.adoc>>
+|<<docs/CM_FAQs.adoc#,CM_FAQs>>
 |Frequently asked questions.
-|<<docs/CM_Download.adoc#,CM_Download.adoc>>
+|<<docs/CM_Download.adoc#,CM_Download>>
 |Downloading the software.
-|<<docs/CM_Updates.adoc#,CM_Updates.adoc>>
+|<<docs/CM_Updates.adoc#,CM_Updates>>
 |Updates from Chronicle Map version 2.
 |<<docs/CM_Compatibility_and_Versioning.adoc#,CM_Compatibility_and_Versioning>>
 |Compatibility and Versioning description.

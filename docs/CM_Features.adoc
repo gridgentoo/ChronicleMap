@@ -73,8 +73,6 @@ queries*.
  - **Clustering** and **replication** for Chronicle
  Map is provided by http://chronicle.software/products/chronicle-map/[Chronicle Map Enterprise].
 
-**Project status: ready for production.**
-
 == What is the data structure of Chronicle Map?
 Simply put, a Chronicle Map data store is a big chunk of shared memory (optionally mapped to disk).
 
