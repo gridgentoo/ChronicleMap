@@ -24,7 +24,7 @@ Changes between Chronicle Map 3 and the previous Chronicle Map version are detai
 
  - Earlier versions of Chronicle Map had hard creation-time limits on the number of entries storable in a Chronicle Map. If the size exceeded this limit, an exception was thrown. +
  In Chronicle Map 3, this limitation is removed. The number of entries still has to be configured when the Chronicle Map is created, Exceeding this configured limit is possible, but discouraged. +
- For more information, see <<CM_Tutorial.adoc#Configure `.entries(entries)`,Configure `.entries(entries)`>>.
+ For more information, see <<CM_Tutorial.adoc#CM_Tutorial.adoc#configure-entriesentries`,Configure `.entries(entries)`>>.
 
  - Chronicle Map 3 supports <<CM_Tutorial.adoc#entry-checksums,entry checksums>> that enables detection of  data corruption, providing additional safety.
 
