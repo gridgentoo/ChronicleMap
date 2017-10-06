@@ -9,7 +9,7 @@ toc::[]
 
 The following stress test is provided for Chronicle Map Enterprise Edition. The test can be configured to run across multiple machines, with varying read/write workloads.
 
-NOTE: This document assumes that you have access to the restricted link::https://github.com/ChronicleEnterprise/Chronicle-Map-Enterprise-Demo[Chronicle-Map-Enterprise-Demo] repository.
+NOTE: This document assumes that you have access to the restricted https://github.com/ChronicleEnterprise/Chronicle-Map-Enterprise-Demo[Chronicle-Map-Enterprise-Demo] repository.
 
 == Single master, multiple slaves
 
