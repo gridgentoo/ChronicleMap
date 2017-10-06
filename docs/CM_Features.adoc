@@ -38,7 +38,7 @@ NOTE: See <<CM_Replication.adoc#,Chronicle Map Replication>> for more informatio
 
 - https://github.com/OpenHFT/Chronicle-Map/blob/master/src[implementation of this data store for the JVM (source)]. Currently, this is the only implementation.
 
-=== From Java perspective
+=== From the Java perspective
 `ChronicleMap` is a `ConcurrentMap` implementation which stores the
 entries *off-heap*, serializing/deserializing key and value objects to/from off-heap memory
 transparently. Chronicle Map supports:
@@ -75,7 +75,7 @@ queries*.
 
 **Project status: ready for production.**
 
-== What is the Chronicle Map's data structure?
+== What is the data structure of Chronicle Map?
 Simply put, a Chronicle Map data store is a big chunk of shared memory (optionally mapped to disk).
 
 It is split into independent segments; each segment has:
@@ -113,27 +113,28 @@ Please contact us at mailto:sales@chronicle.software[sales@chronicle.software] i
 |Feature |Availability
 
 |In-memory off-heap Map
-|Open-source
+|Open source
 |Persistence to disk
-|Open-source
+|Open source
 |Remote calls
-|http://chronicle.software/products/chronicle-map/[Closed-source]
+|Commercially available
 |Eventually-consistent replication (100% redundancy
-|http://chronicle.software/products/chronicle-map/[Closed-source]
+|Commercially available
 |Synchronous replication
-|http://chronicle.software/products/chronicle-map/[Closed-source]
+|Commercially available
 |Partially-redundant replication
-|http://chronicle.software/consultancy/[On-demand]
+|On demand
 |Entry expiration timeouts
-|http://chronicle.software/consultancy/[On-demand]
+|On demand
 
 |===
+
+NOTE: For access to commercially available features please contact mailto:sales@chronicle.software[sales@chronicle.software].
 
 == Peer projects
  - https://github.com/OpenHFT/Chronicle-Engine[Chronicle Engine].  Reactive processing framework
  supporting Chronicle Map as a backend.
- - http://chronicle.software/products/chronicle-enterprise/[Chronicle Enterprise]. Extended
- versions of Chronicle software.
+
  - http://vanillajava.blogspot.com/2015/09/chronicle-journal-customizable-data.html[Chronicle Journal]. Another
  key-value built by Chronicle Software, with different properties.
 
