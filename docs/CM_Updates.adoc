@@ -36,7 +36,7 @@ Changes between Chronicle Map 3 and the previous Chronicle Map version are detai
 
  - Chronicle Map 3 requires Java version 8, or later.
 
- - Chronicle Map 3 has <<CM_Versioning_and_Compatibility.adoc#,versioning and compatibility policies>>.
+ - Chronicle Map 3 has <<CM_Compatibility_and_Versioning.adoc#,versioning and compatibility policies>>.
 
 
 '''
