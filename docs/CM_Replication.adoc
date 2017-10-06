@@ -20,7 +20,7 @@ For more information on Chronicle Map (Enterprise Edition), please contact mailt
 
 To ensure that Chronicle Map's multi-master replication works under extreme circumstances, we have
 built a stress test to ensure this using the principles introduced by Netflix with their "chaos monkey".
-For more information on the stress test see <<CM_Replication_Stress_Test.adoc#,CM_Replication_Stress_Test.adoc>>.
+For more information on the stress test see <<CM_Replication_Stress_Test.adoc#,CM_Replication_Stress_Test>>.
 
 = Replication
 
@@ -188,7 +188,7 @@ valuesAreConstantSize: true # determines how values are serialised
 After putting 100 entries into each distinct map, the example demonstrates that the entries have been replicated so that each map
 now contains 200 entries.
 
-This example is available in the repository, https://github.com/ChronicleEnterprise/Chronicle-Map-Enterprise/blob/master/src/test/java/software/chronicle/enterprise/map/example/MultiMasterMapReplicationMain.java[MultiMasterMapReplicationMain.java]
+This example is available in the repository, https://github.com/ChronicleEnterprise/Chronicle-Map-Enterprise/blob/master/src/test/java/software/chronicle/enterprise/map/example/MultiMasterMapReplicationExampleMain.java[MultiMasterMapReplicationExampleMain.java]
 
 
 == Replication event logging
