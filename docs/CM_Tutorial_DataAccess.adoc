@@ -16,7 +16,7 @@ The reader part, `SizedReader`, is the same as in <<CM_Tutorial_Sized.adoc#,`Siz
 The main method in `DataAccess` is `Data<T> getData(@NotNull T instance)`. It returns a `Data`
 accessor which is used to write a "serialized" form of the instance to off-heap memory. `Data.size()`
 on the returned `Data` object is used for the same purpose as the `SizedWriter.size()` method in
-the <<CM_Tutorial_Sized.adoc,`SizedWriter` and          `SizedReader`>> pair interfaces. `Data.writeTo()`
+the <<CM_Tutorial_Sized.adoc#,`SizedWriter` and          `SizedReader`>> pair interfaces. `Data.writeTo()`
 is used instead of `SizedWriter.write()`.
 
 `DataAccess` assumes that the `Data` object, returned from the `getData()` method is cached in some way. That is why it also has an `uninit()` method to clear references to the serialized object after a query operation to a Chronicle Map is complete to prevent memory leaks. This, in turn, implies that the `DataAccess` implementation is stateful. Therefore,  `DataAccess` is made a sub-interface of
