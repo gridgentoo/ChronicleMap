@@ -12,8 +12,7 @@ Changes between Chronicle Map 3 and the previous Chronicle Map version are detai
 
 == Functional changes
 
- - Chronicle Map 3 has a https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec[formal data store specification] that specifies https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec/1-design-goals.md#guarantees-1[the guarantees
- which the data store provides] and gives a way to verify those guarantees.
+ - Chronicle Map 3 has a https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec[formal data store specification] that specifies the https://github.com/OpenHFT/Chronicle-Map/blob/doco_refresh/spec/1-design-goals.md#guarantees-1[guarantees] that the data store provides, and gives a way to verify those guarantees.
 
  - Added support for multi-key queries.
 
