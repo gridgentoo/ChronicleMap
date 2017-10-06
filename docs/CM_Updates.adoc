@@ -28,7 +28,7 @@ Changes between Chronicle Map 3 and the previous Chronicle Map version are detai
 
  - Chronicle Map 3 supports <<CM_Tutorial.adoc#entry-checksums,entry checksums>> that enables detection of  data corruption, providing additional safety.
 
- - Chronicle Map 3 allows <<CM_Tutorial.adoc#Recovery,recovery>> after failures and corruptions.
+ - Chronicle Map 3 allows <<CM_Tutorial.adoc#recovery,recovery>> after failures and corruptions.
 
  - Minor improvements and fixes.
 

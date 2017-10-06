@@ -85,7 +85,7 @@ If you don't need the Chronicle Map instance to survive the server restart, i. e
 persistence to disk, only multi-process access, choose the file to be mounted on http://en.wikipedia.org/wiki/Tmpfs[tmpfs]. For example, on `Linux` it is as easy as placing you file in `/dev/shm` directory.
 
 
-== Configure `.entries(entries)`
+== Configure entries
 
 Try to configure the `entries` so that the created Chronicle Map is going to serve about 99% requests being less or equal than this number of entries in size.
 
