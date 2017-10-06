@@ -48,7 +48,7 @@ queries*.
  - Flyweight values for eliminating serialization/deserialization cost and allowing direct
  read/write access to off-heap memory.
 
-=== Primary Chronicle Map use cases**
+=== Primary Chronicle Map use cases
 
  - Replacing slower key-value stores, like `Redis` and `Memcached`, when used within a single server.
 
@@ -84,7 +84,7 @@ It is split into independent segments; each segment has:
 
  - a lock in shared memory (implemented via CAS loops) for managing concurrent access.
 
-See the <<../spec/2-design-overview.md#, Chronicle Map data store design overview>> for more information.
+See the <<../spec/2-design-overview.md, Chronicle Map data store design overview>> for more information.
 
 == Chronicle Map is not
 
