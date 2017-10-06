@@ -1,4 +1,4 @@
-= Chronicle MAP
+= Chronicle Map
 
 Chronicle Map is a super-fast, in-memory, key-value store, designed for low-latency, and/or multi-process applications such as trading and financial market applications.
 
