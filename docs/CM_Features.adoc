@@ -84,7 +84,7 @@ It is split into independent segments; each segment has:
 
  - a lock in shared memory (implemented via CAS loops) for managing concurrent access.
 
-See the <<../spec/2-design-overview.md, Chronicle Map data store design overview>> for more information.
+See the https://github.com/OpenHFT/Chronicle-Map/blob/master/spec[ Chronicle Map data store design overview] for more information.
 
 == Chronicle Map is not
 
