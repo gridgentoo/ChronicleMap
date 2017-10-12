@@ -87,12 +87,11 @@ persistence to disk; only multi-process access), mount the file on http://en.wik
 
 == Configure entries
 
-Try to configure the `entries` so that the created Chronicle Map is going to serve about 99% requests being less or equal than this number of entries in size.
+You must configure .entries(entries) -- to support the maximum number of entries in the Chronicle Map. Try to configure the entries so that the created Chronicle Map is going to serve about 99% of requests.
 
-You should not put additional margin over the actual target number of entries. This bad practice was popularized by `new HashMap(capacity)` and `new HashSet(capacity)` constructors, which accept capacity, that should be multiplied by load factor to obtain the actual maximum expected number of entries in the container. `ChronicleMap` and `ChronicleSet` don't have a notion of load factor.
+You should not put additional margin over the actual target number of entries. This bad practice was popularized by `new HashMap(capacity)` and `new HashSet(capacity)` constructors, which accept capacity, that should be multiplied by load factor to obtain the actual maximum expected number of entries in the container. `ChronicleMap` and `ChronicleSet` do not have a notion of load factor.
 
 See `ChronicleMapBuilder#entries()` in http://www.javadoc.io/doc/net.openhft/chronicle-map/[Javadocs] for more information.
-
 
 Once a `ChronicleMap` instance is created, its configurations are sealed and cannot be changed
 using the `ChronicleMapBuilder` instance.
