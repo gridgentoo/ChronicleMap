@@ -1,5 +1,7 @@
 = Chronicle Map
 
+Chronicle Map is a super-fast, in-memory, key-value store, designed for low-latency, and/or multi-process applications such as trading and financial market applications.
+
 Chronicle Map is a super-fast, in-memory, non-blocking, key-value store, designed for low-latency, and/or multi-process
 applications such as trading and financial market applications.
 See <<docs/CM_Features.adoc#,Features doc>> for more information.
@@ -7,6 +9,13 @@ See <<docs/CM_Features.adoc#,Features doc>> for more information.
 The size of a Chronicle Map is not limited by memory (RAM), but rather by the available disk capacity.
 
 image::docs\images\CM_Overview.jpg[]
+
+== Prerequisites
+
+To run Chronicle Map, please ensure you have first installed:
+
+* Java (1.8.0_91 or later)
+* Apache Maven (3.2.3 or later)
 
 === Use cases
 Chronicle Map is used in production around the
