@@ -1,19 +1,15 @@
 = Chronicle Map
 
-<<<<<<< HEAD
 Chronicle Map is a super-fast, in-memory, key-value store, designed for low-latency, and/or multi-process applications such as trading and financial market applications.
 
-=======
 Chronicle Map is a super-fast, in-memory, non-blocking, key-value store, designed for low-latency, and/or multi-process
 applications such as trading and financial market applications.
 See <<docs/CM_Features.adoc#,Features doc>> for more information.
->>>>>>> origin/doco_refresh
 
 The size of a Chronicle Map is not limited by memory (RAM), but rather by the available disk capacity.
 
 image::docs\images\CM_Overview.jpg[]
 
-<<<<<<< HEAD
 == Prerequisites
 
 To run Chronicle Map, please ensure you have first installed:
@@ -21,8 +17,6 @@ To run Chronicle Map, please ensure you have first installed:
 * Java (1.8.0_91 or later)
 * Apache Maven (3.2.3 or later)
 
-=======
->>>>>>> origin/doco_refresh
 === Use cases
 Chronicle Map is used in production around the
 world for:
@@ -38,13 +32,6 @@ distributed across multiple machines.
 Chronicle Map is:
 
 • **fast**. Millions of operations per second, with
-<<<<<<< HEAD
-low and stable microsecond latencies.
-• **reliable**. Chronicle Software have a “chaos
-monkey” test which verifies Chronicle Map
-multi-master replication in the face of node
-and network failures.
-=======
 low and stable microsecond latencies for reads and writes. Write queries scale well up
 to the number of hardware execution threads in the server. Read queries never block each
 other.
@@ -52,7 +39,6 @@ other.
 monkey” test which verifies Chronicle Map
 multi-master replication in the face of node
 and network failures. The map can optionally be persisted to disk.
->>>>>>> origin/doco_refresh
 • **in production** at banks and hedge funds,
 globally.
 • **built using lessons learnt** from real-world
@@ -69,11 +55,8 @@ your own.
 
 === Replication Environment Example
 The following diagram shows an example of Chronicle Map replication over three servers (or sites).
-<<<<<<< HEAD
-=======
 Chronicle Map Replication is part of Chronicle Map (Enterprise Edition); a commercially supported
 version of our successful open source Chronicle Map.
->>>>>>> origin/doco_refresh
 
 image::docs\images\Configure_Three_Way_Replication.png[]
 
