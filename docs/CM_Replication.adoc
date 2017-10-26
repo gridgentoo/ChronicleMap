@@ -24,7 +24,10 @@ For more information on the stress test see <<CM_Replication_Stress_Test.adoc#,C
 
 = Replication
 
-Chronicle Map Replication is a multi-master replicated data store. Chronicle Map supports both TCP and UDP replication
+Chronicle Map Replication is a multi-master replicated data store. Chronicle Map supports both TCP and UDP replication.
+
+NOTE: Chronicle Map Replication is a Chronicle Map (Enterprise Edition) feature. +
+For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software].
 
 image::http://openhft.net/wp-content/uploads/2014/07/Chronicle-Map-TCP-Replication_simple_02.jpg[TCP/IP Replication]
 
@@ -43,6 +46,9 @@ We are careful not to swamp your network with too much TCP/IP traffic. We do thi
 
 == How Chronicle Map Replication works
 Chronicle Map provides multi-master hash-map replication. This means that each remote map mirrors its changes over to another remote map. Neither map is considered to be the master store of data. Each map uses timestamps to reconcile changes.
+
+NOTE: Chronicle Map Replication is a Chronicle Map (Enterprise Edition) feature. +
+For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software].
 
 We refer to an instance of a remote map as a **node**. Each node can be connected to up to 128 other nodes.
 

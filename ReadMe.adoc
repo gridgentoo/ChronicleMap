@@ -81,7 +81,9 @@ Replication is multi-master, lock-free, redundant, deterministic, and eventually
 
 The writer can optionally wait for replication to occur across nodes or regions.
 
-NOTE: See <<docs/CM_Replication.adoc#,Chronicle Map Replication>> for more information.
+NOTE: Chronicle Map Replication is a Chronicle Map (Enterprise Edition) feature. +
+For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software]. +
+See <<docs/CM_Replication.adoc#,Chronicle Map Replication>> for more information.
 
 '''
 == Documentation
