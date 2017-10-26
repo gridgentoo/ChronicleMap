@@ -173,7 +173,6 @@ The following example uses a basic `yaml` configuration file to define defaults 
 [source, yaml]
 ....
 !ReplicatedMapCfg {
-<<<<<<< HEAD
 
 hostId: 1, # host id must be unique within the cluster
 listenAddressHostPort: "localhost:9301", # address on which to listen for inbound replication requests
@@ -189,7 +188,6 @@ mapLogDirectory: target/mapReplicationLogs, # directory where replication events
 keysAreConstantSize: true, # determines how keys are serialised
 valuesAreConstantSize: true # determines how values are serialised
 
-=======
     hostId: 1, # host id must be unique within the cluster
     listenAddressHostPort: "localhost:9301", # address on which to listen for inbound replication requests
     entries: 10000, # entries hint suggesting the initial size of the map
@@ -203,7 +201,6 @@ valuesAreConstantSize: true # determines how values are serialised
     mapLogDirectory: target/mapReplicationLogs, # directory where replication events should be recorded
     keysAreConstantSize: true, # determines how keys are serialised
     valuesAreConstantSize: true # determines how values are serialised
->>>>>>> origin/doco_refresh
 }
 ....
 
