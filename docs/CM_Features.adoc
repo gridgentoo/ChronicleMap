@@ -32,9 +32,6 @@ applications, such as trading and financial market applications.
 NOTE: Chronicle Map Replication is a Chronicle Map (Enterprise Edition) feature. +
 For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software].
 
-NOTE: Chronicle Map Replication is a Chronicle Map (Enterprise Edition) feature. +
-For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software].
-
 NOTE: See <<CM_Replication.adoc#,Chronicle Map Replication>> for more information.
 
 **Chronicle Map** has two meanings:
