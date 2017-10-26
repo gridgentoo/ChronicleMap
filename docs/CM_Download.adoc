@@ -8,6 +8,15 @@ Neil Clifford
 
 toc::[]
 
+<<<<<<< HEAD
+=======
+== Prerequisites
+
+To run Chronicle Map, please ensure you have first installed:
+
+* Java (1.8.0_91 or later)
+* Apache Maven (3.2.3 or later)
+>>>>>>> origin/doco_refresh
 
 == License
 

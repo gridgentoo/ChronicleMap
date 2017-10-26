@@ -18,7 +18,11 @@ applications, such as trading and financial market applications.
  - **High concurrency**: Write queries scale well up to the number of hardware execution threads in
  the server. Read queries never block each other.
  - **Persistence to disk** - (Optional)
+<<<<<<< HEAD
  - **Multi-key queries** - (Optional, closed-source) - Eventually-consistent, fully-redundant, asynchronous replication across
+=======
+ - **Multi-master replication** - (Optional, commercial functionality) - Eventually-consistent, fully-redundant, asynchronous replication across
+>>>>>>> origin/doco_refresh
  servers, "last write wins" strategy by default, allows to implement custom https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type[state-based CRDT] strategy.
 
 == Unique features
