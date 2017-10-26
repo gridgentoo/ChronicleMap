@@ -26,9 +26,7 @@ applications, such as trading and financial market applications.
  the data store is *in-process* for each of the accessing processes. Out-of-process approach to IPC
  is simply incompatible with Chronicle Map's median latency target of < 1 μs.
 
- - Replication *without logs*, with constant footprint cost, guarantees progress even if the network
- doesn't sustain write rates.
-
+ - Replication *without logs*, with constant footprint cost, guarantees progress even if the network  doesn't sustain write rates.
 
 NOTE: Chronicle Map Replication is a Chronicle Map (Enterprise Edition) feature. +
 For more information on Chronicle Map (Enterprise Edition), please contact mailto:sales@chronicle.software[sales@chronicle.software].
