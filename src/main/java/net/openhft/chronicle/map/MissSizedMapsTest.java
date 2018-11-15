@@ -1,8 +1,5 @@
 package net.openhft.chronicle.map;
 
-import org.junit.Assert;
-import org.junit.Test;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -18,12 +15,13 @@ import java.util.Map;
  */
 public class MissSizedMapsTest {
 
-    @Test
-    public void testSmallEntries() throws IOException, URISyntaxException {
+    public static void main(String[] args) throws IOException, URISyntaxException {
+
         ChronicleMap<String, String> actual = ChronicleMapBuilder.of(String.class, String.class)
                 .averageKey("D-6.0149935894066442E18").averageValue("226|16533|4|1|1|testHarness").entries(150 << 10)
                 .createPersistedTo(File.createTempFile("chronicle", "cmap"));
-        check(actual);
+        MissSizedMapsTest missSizedMapsTest = new MissSizedMapsTest();
+        missSizedMapsTest.check(actual);
     }
 
     private void check(final ChronicleMap<String, String> actual) throws
@@ -44,18 +42,18 @@ public class MissSizedMapsTest {
 
         }
 
-        Assert.assertEquals(actual.size(), expected.size());
-        Assert.assertEquals(actual.keySet().size(), expected.keySet().size());
+        assert actual.size() == expected.size();
+        assert actual.keySet().size() == expected.keySet().size();
 
         for (String key : actual.keySet()) {
             if (!expected.containsKey(key)) {
-                Assert.fail(key + " not in key set but in map expected");
+                throw new IllegalStateException(key + " not in key set but in map expected");
             }
         }
 
         for (String key : expected.keySet()) {
             if (!actual.containsKey(key)) {
-                Assert.fail(key + " not in key set but in map actual");
+                throw new IllegalStateException(key + " not in key set but in map actual");
             }
         }
 

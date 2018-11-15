@@ -384,7 +384,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <classpathPrefix>lib/</classpathPrefix>
-                            <mainClass>com.mypackage.MyClass</mainClass>
+                            <mainClass>net.openhft.chronicle.map.MissSizedMapsTest</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
