@@ -41,7 +41,10 @@ import net.openhft.chronicle.wire.WireIn;
 import net.openhft.chronicle.wire.WireOut;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.*;
+import java.io.Closeable;
+import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -701,6 +704,7 @@ public abstract class VanillaChronicleHash<K,
         // TODO optimize for the case when chunkSize is power of 2, that is default (and often) now
         if (sizeInBytes <= chunkSize)
             return 1;
+
         // int division is MUCH faster than long on Intel CPUs
         sizeInBytes -= 1L;
         if (sizeInBytes <= Integer.MAX_VALUE)

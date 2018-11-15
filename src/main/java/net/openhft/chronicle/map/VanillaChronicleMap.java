@@ -712,6 +712,8 @@ public class VanillaChronicleMap<K, V, R>
             methods.put(q, valueData, returnValue);
             return returnValue.returnValue();
         }
+
+        
     }
 
     @Override
