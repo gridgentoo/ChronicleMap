@@ -14,6 +14,9 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static net.openhft.chronicle.algo.bitset.ReusableBitSet.INSTANCE;
+import static net.openhft.chronicle.map.VanillaChronicleMap.*;
+
 /**
  * Created by catst01 on 24/10/2018.
  */
@@ -49,10 +52,13 @@ public class MissSizedMapsTest {
     private static ChronicleMap<String, String> createMapInstance() throws IOException {
         return ChronicleMapBuilder.of(String.class, String.class)
                 .averageKey("D-6.0149935894066442E18").averageValue("226|16533|4|1|1|testHarness").entries(150 << 10)
+                .actualSegments(1)
                 .createPersistedTo(File.createTempFile("chronicle", "cmap"));
     }
 
-    AtomicBoolean writtenKey = new AtomicBoolean();
+    AtomicBoolean w30 = new AtomicBoolean();
+
+    String v;
 
     private boolean check(final ChronicleMap<String, String> actual,
                           String s,
@@ -60,44 +66,83 @@ public class MissSizedMapsTest {
                           AtomicInteger count, String lable) {
         String[] split = s.split("&");
         String key = split[0];
-        Object old = expected.put(key, split[1]);
-        //System.out.println("old=" + old);
-        //if (old == null)
+        String value = split[1];
 
-        if (count.get() == 85124) {
-            boolean before = actual.containsKey("9|19633|4|1|1|testHarness");
-            actual.put(key, split[1].substring(0, split[1].length() - 4));
-            boolean after = actual.containsKey("9|19633|4|1|1|testHarness");
-
-            System.out.println("before=" + before);
-            System.out.println("after=" + after);
-
+        if (key.equals("30|5235|4|1|1|testHarness")) {
+            System.out.println(INSTANCE.isSet(124851));
+            System.out.println("");
         }
 
-        if (key.equals("9|19633|4|1|1|testHarness")) {
-            writtenKey.set(true);
+        if ("27|31|4|1|1|testHarness".equals(key)) {
+            System.out.println("");
         }
 
-        if (count.get() == 99504)
-            actual.put(key, split[1]);
-        else
-            actual.put(key, split[1]);
+        if (count.get() == 52592) {
+
+            System.out.println("BEFORE PUT \t- expected=" + expected.size() + ", actual= " + actual.size());
+            System.out.println(INSTANCE.isSet(124851));
+
+            int start = 4968576;
+            long end = 4968754;
+            System.out.println(bSeg.toHexString(start, end - start));
+            Object old = expected.put(key, value);
+            String old1 = actual.put(key, value);
+         //   assert old1 == null;
+
+            System.out.println("AFTER PUT \t- expected=" + expected.size() + ", actual= " + actual.size());
+            printRow(actual, key);
+
+      /*      if (expected.size() != actual.size()) {
+
+                String k = actual.keySet()) .forEach(e -> expected.containsKey(e));
+
+                System.out.println("expected keyset=" + expected.keySet());
+                System.out.println("actual keyset=" + actual.keySet());
+            }*/
+
+        } else {
+            Object old = expected.put(key, value);
+            actual.put(key, value);
+
+            if (w30.get() && !actual.containsKey("30|5235|4|1|1|testHarness")) {
+                System.out.println("\n\n\n\n" + key);
+            }
+            printRow(actual, key);
+        }
+
+        if (key.equals("30|5235|4|1|1|testHarness"))
+            w30.set(true);
+
+
+        
+  /*      if ("5|2311|4|1|1|testHarness".equals(key))
+            System.out.println(expected.containsKey("9|19633|4|1|1|testHarness"));
+*/
         count.incrementAndGet();
 
-        if (!actual.containsKey(key))
-            System.out.println("key");
-
-        if (actual.size() != expected.size()) {
-            System.out.println(lable + " count=" + count.get());
+        if (expected.size() != actual.size()) {
+            System.out.println("expected=" + expected.size());
+            System.out.println("actual=" + actual.size());
             return false;
         }
 
-        if (writtenKey.get()) {
-            if (!actual.containsKey("9|19633|4|1|1|testHarness"))
-                System.out.println("it got coruppted here");
+        return true;
+    }
+
+    private void printRow(final ChronicleMap<String, String> actual, final String key) {
+        String s1 = actual.get(key);
+        System.out.println(lower + " - " + upper +
+                "\t " +
+                "key=" + key + ",\t value=" + s1 + "\t" + " " +
+                "start=0x" + Long.toHexString(start) + ", end=0x" + Long.toHexString(end + 4));
+
+        if (start >= 0x4bd0c0 && end <= 0x4bd0f6) {
+            int start = 0x4bd0c0 - 64;
+            long end = VanillaChronicleMap.end + 64;
+            System.out.println(bSeg.toHexString(start, end - start));
+            return;
         }
 
-        return true;
     }
 
     @NotNull
@@ -108,3 +153,4 @@ public class MissSizedMapsTest {
     }
 
 }
+

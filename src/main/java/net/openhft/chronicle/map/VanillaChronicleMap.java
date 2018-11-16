@@ -614,6 +614,7 @@ public class VanillaChronicleMap<K, V, R>
             }
 
             long keySizeOffset = entrySpaceOffset + (entryPos * chunkSize);
+
             bs.readLimit(bs.capacity());
             bs.readPosition(keySizeOffset);
             long keySize = keySizeMarshaller.readSize(bs);
@@ -625,10 +626,28 @@ public class VanillaChronicleMap<K, V, R>
             long valueSizeOffset = keyOffset + keySize;
             bs.readPosition(valueSizeOffset);
             long valueSize = readValueSize(bs);
+
+            q.initInputKey(inputKey);
+            q.entry();
+            lower = q.pos();
+            long l1 = 4 + (q.entryEnd() - q.keySizeOffset());
+            long l = q.m().inChunks(l1);
+
+            start = q.keySizeOffset();
+            end = q.entryEnd();
+
+            upper = q.pos() + l;
+            bSeg = bs;
             return q.valueReader.read(bs, valueSize, using);
         }
         return null;
     }
+
+    public static long lower;
+    public static long upper;
+    public static long start;
+    public static long end;
+    public static Bytes bSeg;
 
     @Override
     public V getUsing(K key, V usingValue) {

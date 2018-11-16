@@ -167,10 +167,10 @@ public abstract class ReplicatedMapEntryStages<K, V> extends MapEntryStages<K, V
     }
 
     @Override
-    protected void relocation(Data<V> newValue, long newSizeOfEverythingBeforeValue) {
+    protected void relocation(Data<V> newValue, long entrySize) {
         long oldPos = pos;
         long oldTierIndex = s.tierIndex;
-        super.relocation(newValue, newSizeOfEverythingBeforeValue);
+        super.relocation(newValue, entrySize);
         ru.moveChange(oldTierIndex, oldPos, pos);
     }
 

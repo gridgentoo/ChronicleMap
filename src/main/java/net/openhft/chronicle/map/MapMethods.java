@@ -82,13 +82,7 @@ public interface MapMethods<K, V, R> {
         // between, that will break ConcurrentMap.put() atomicity guarantee. So, we acquire
         // update lock from the start:
         q.updateLock().lock();
-        if (MissSizedMapsTest.COUNT_1.get() == 99504) {
-            assert  "9|19633|4|1|1|testHarness".equals(q.queriedKey().toString());
-            System.out.println("");
-            ((CompiledMapQueryContext)q).initKeySearch();
-            assert ((CompiledMapQueryContext)q).searchState() == PRESENT;
-
-        }
+       
         MapEntry<K, V> entry = q.entry();
         if (entry != null) {
             returnValue.returnValue(entry.value());
@@ -96,12 +90,6 @@ public interface MapMethods<K, V, R> {
         } else {
             q.insert(q.absentEntry(), value);
         }
-
-        if ("9|19633|4|1|1|testHarness".equals(q.queriedKey().toString()) ){
-            ((CompiledMapQueryContext)q).initKeySearch();
-            assert ((CompiledMapQueryContext)q).searchState() == PRESENT;
-        }
-
 
     }
 
