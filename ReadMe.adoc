@@ -1,5 +1,7 @@
 # Chronicle Map — key value хранилище для трейдинга на Java
+
 In-Memory Redis не подходит для Трейдинга и вот почему?
+
 Chronicle Map — key value хранилище для трейдинга на Java / Роман Левентов (Chronicle Software)
 https://www.youtube.com/watch?v=iTJpGa3W0xc&t=200s
 
